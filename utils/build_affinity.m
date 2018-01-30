@@ -25,7 +25,7 @@ if normalize
 end
 if thresh
   % threshold small values and convert to sparse matrix.
-  Cabs(Cabs < 1e-8) = 0; Cabs = sparse(Cabs);
+  absC(absC < 1e-8) = 0; absC = sparse(absC);
 end
 A = absC + absC';
 end

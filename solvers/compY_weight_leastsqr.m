@@ -10,7 +10,7 @@ function Y = compY_weight_leastsqr(X, Omega, C, W)
 %     X: D x N incomplete data matrix.
 %     Omega: D x N binary pattern of missing entries.
 %     C: N x N self-expressive coefficient C.
-%     W: Non-negative weight matrix
+%     W: Non-negative weight matrix.
 %
 %   Returns:
 %     Y: D x N completed data.
