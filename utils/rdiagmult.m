@@ -1,4 +1,4 @@
-function C = rdiagmult(A, b);
+function C = rdiagmult(A, b)
 % rdiagmult   Multiply: A diag(b)
 %
 %   C = rdiagmult(A, b)
