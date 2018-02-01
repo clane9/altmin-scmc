@@ -39,7 +39,7 @@ for i=1:length(fields)
     params.(fields{i}) = defaults{i};
   end
 end
-tic; % start timer.
+tstart = tic; % start timer.
 
 % If f, r functions are strings, convert to function handles.
 if ischar(ffun)
@@ -88,7 +88,7 @@ while iter <= params.maxIter
     fprintf(printformstr, iter, update, obj, f, r, alpha);
   end
 
-  if params.logLevel > 1
+  if params.logLevel >0 
     history.obj(iter) = obj;
     history.f(iter) = f;
     history.r(iter) = r;
@@ -102,7 +102,7 @@ while iter <= params.maxIter
     break
   end
 end
-history.iter = iter; history.status = status; history.rtime = toc;
+history.iter = iter; history.status = status; history.rtime = toc(tstart);
 end
 
 function t = frodot(x, y)

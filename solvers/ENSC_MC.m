@@ -1,18 +1,45 @@
 classdef ENSC_MC < SC_MC_Base_Solver
+% ENSC_MC   Solver for elastic-net regularized alternating minimization for
+%   joint subspace clustering and completion. Solves formulation
+%
+%   min_{Y,C} lambda/2 ||W .* (Y - YC)||_F^2 ...
+%       + gamma ||C||_1 + (1-gamma)/2 ||C||_F^2 ...
+%       + eta/2 ||P_{Omega^c}(Y)||_F^2
+%   s.t. diag(C) = 0, P_{Omega}(Y - X) = 0
+%
+%   solver = ENSC_MC(X, Omega, n, lambda, gamma, eta)
 
   properties
-    gamma;
+    gamma; eta;
   end
 
   methods
 
-    function self = ENSC_MC(X, Omega, n, lambda, gamma)
+    function self = ENSC_MC(X, Omega, n, lambda, gamma, eta)
+    % ENSC_MC   Solver for elastic-net regularized alternating minimization for
+    %   joint subspace clustering and completion. Solves formulation
+    %
+    %   min_{Y,C} lambda/2 ||W .* (Y - YC)||_F^2 ...
+    %       + gamma ||C||_1 + (1-gamma)/2 ||C||_F^2 ...
+    %       + eta/2 ||P_{Omega^c}(Y)||_F^2
+    %   s.t. diag(C) = 0, P_{Omega}(Y - X) = 0
+    %
+    %   solver = ENSC_MC(X, Omega, n, lambda, gamma, eta)
+    %
     %   Args:
     %     X: D x N incomplete data matrix.
     %     Omega: D x N binary pattern of missing entries.
     %     n: number of clusters.
+    %     lambda: self-expression penalty parameter.
+    %     gamma: elastic-net tradeoff parameter.
+    %     eta: frobenius penalty parameter on completion.
+    %
+    %   Returns:
+    %     self: ENSC_MC solver instance.
+    if nargin < 6; eta = lambda; end
     self = self@SC_MC_Base_Solver(X, Omega, n, lambda);
     self.gamma = gamma;
+    self.eta = eta;
     end
 
 
@@ -24,7 +51,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
     %
     %   Args:
     %     Y: D x N incomplete data matrix.
-    %     C: N x N self-expressive coefficient C, used for initialization.
+    %     C: N x N self-expressive coefficient C.
     %     tau: Non-negative scalar representing reconstruction penalty weight on
     %       unobserved entries.
     %
@@ -35,19 +62,22 @@ classdef ENSC_MC < SC_MC_Base_Solver
     Res = Y - Y*C;
     L = 0.5*sum(Res(self.Omega).^2) + 0.5*(tau^2)*sum(Res(self.Omegac).^2);
     R = self.gamma*sum(abs(C(:))) + (1-self.gamma)*0.5*sum(C(:).^2);
+    if self.eta > 0
+      R = R + self.eta*0.5*sum(Y(self.Omegac).^2);
+    end
     obj = self.lambda*L + R;
     end
 
 
     function [C, history] = exprC(self, Y, C, tau, params)
-    % exprC   Compute self-expression with elastic-net regularization using ADMM.
-    %   Solves the formulation
+    % exprC   Compute self-expression with elastic-net regularization using
+    %   ADMM. Solves the formulation
     %
     %   min_C \lambda/2 ||W \odot (Y - YC)||_F^2 + ...
     %     \gamma ||C||_1 + (1-gamma)/2 ||C||_F^2
     %     s.t. diag(C) = 0.
     %
-    %   [C, history = solver.exprC(Y, C, tau, params)
+    %   [C, history] = solver.exprC(Y, C, tau, params)
     %
     %   Args:
     %     Y: D x N incomplete data matrix.
@@ -60,8 +90,8 @@ classdef ENSC_MC < SC_MC_Base_Solver
     %       maxIter: [default: 200].
     %       convThr: [default: 1e-4].
     %       prtLevel: 1=basic per-iteration output [default: 0].
-    %       logLevel: 1=basic summary info, 2=detailed per-iteration info
-    %         [default: 1]
+    %       logLevel: 0=basic summary info, 1=detailed per-iteration info
+    %         [default: 0]
     %
     %   Returns:
     %     C: N x N self-expression.
@@ -75,7 +105,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
         params.(fields{i}) = defaults{i};
       end
     end
-    tic; % start timer.
+    tstart = tic; % start timer.
 
     % Set constants.
     tausqr = tau^2;
@@ -100,10 +130,11 @@ classdef ENSC_MC < SC_MC_Base_Solver
         end
       end
       Z = R \ (R' \ leastsqr_target);
-      % Update C by solving elastic-net proximal operator, with diagonal constraint.
+      % Update C by solving elastic-net proximal operator, with diagonal
+      % constraint.
       C = prox_en(Z + U, self.gamma, 1/params.mu);
       C(1:(self.N+1):end) = 0; % set diagonal to 0.
-      % Update variables used to absorb errors on \Omega, \Omega^c.
+      % Update A, B variables used to absorb errors on \Omega, \Omega^c.
       Res = Y*Z - Y;
       if tau < 1
         A = self.Omegac .* Res;
@@ -130,20 +161,20 @@ classdef ENSC_MC < SC_MC_Base_Solver
         break
       end
     end
-    history.iter = kk;
-    history.rtime = toc;
+    history.iter = kk; history.rtime = toc(tstart);
     end
 
 
     function [Y, history] = compY(self, ~, C, tau, ~)
     % compY   Complete missing data using self-expression C. Solves objective:
     %
-    %   min_Y 1/2 ||W \odot (Y - YC)||_F^2 s.t. P_Omega(Y-X) = 0.
+    %   min_Y lambda/2 ||W \odot (Y - YC)||_F^2 + eta/2 ||P_\Omega^C(Y)||_F^2
+    %   s.t. P_Omega(Y-X) = 0.
     %
     %   Problem is solved row-by-row by computing a least-squares solution
     %   using SVD.
     %
-    %   [Y, history] = solver.compY(~, C, tau, ~)
+    %   [Y, history] = solver.compY(Y, C, tau, params)
     %
     %   Args:
     %     Y: D x N complete data matrix initial guess (not used, included for
@@ -151,24 +182,34 @@ classdef ENSC_MC < SC_MC_Base_Solver
     %     C: N x N self-expressive coefficient C.
     %     tau: Non-negative scalar representing reconstruction penalty weight on
     %       unobserved entries.
+    %     params: (not used, included for consistency.)
     %
     %   Returns:
     %     Y: D x N completed data.
     %     history: Struct containing minimal diagnostic info.
-    tic; % start timer.
+    tstart = tic; % start timer.
     W = ones(self.D, self.N); W(self.Omegac) = tau;
+    Nunobs = sum(Omegac, 2);
     IC = eye(self.N) - C;
     Y = self.X; % Initialize Y so that it agrees on observed entries.
     for ii=1:self.D
       omegai = self.Omega(ii,:); omegaic = self.Omegac(ii,:);
       xi = self.X(ii,:)'; wi = W(ii,:)';
       % Compute A = ((I - C) diag(W_{i,.}))^T. Drop rows of A set to zero.
-      A = IC' .* repmat(wi, [1 self.N]); A = A(wi~=0, :);
+      A = ldiagmult(wi, IC');
       % Compute least squares solution to:
-      %   1/2 ||A_{\omega_i^c} y_{\omega_i^c} + A_{\omega_i} x_{\omega_i}||_2^2
-      Y(ii,omegaic) = pinv(A(:,omegaic))*(-A(:,omegai)*xi(omegai));
+      %   lambda/2 ||A_{\omega_i^c} y_{\omega_i^c} + A_{\omega_i} x_{\omega_i}||_2^2
+      %   + eta/2 ||y_{\omega_i^c}||_2^2
+      if self.eta == 0
+        A = A(wi~=0, :);
+        Y(ii,omegaic) = pinv(A(:,omegaic))*(-A(:,omegai)*xi(omegai));
+      else
+        Y(ii,omegaic) = (self.lambda*A(:,omegaic)'*A(:,omegaic) + ...
+            self.eta*eye(Nunobs(ii))) \ ...
+            A(:,omegaic)'*(-A(:,omegai)*xi(omegai));
+      end
     end
-    history.iter = 0; history.status = 0; history.rtime = toc;
+    history.iter = 0; history.status = 0; history.rtime = toc(tstart);
     end
 
     end

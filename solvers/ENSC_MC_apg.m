@@ -1,16 +1,48 @@
-classdef ENSC_MC2 < ENSC_MC
+classdef ENSC_MC_apg < ENSC_MC
+% ENSC_MC_apg   Solver for elastic-net regularized alternating minimization for
+%   joint subspace clustering and completion. Solves formulation
+%
+%   min_{Y,C} lambda/2 ||W .* (Y - YC)||_F^2 ...
+%       + gamma ||C||_1 + (1-gamma)/2 ||C||_F^2 ...
+%       + eta/2 ||P_{Omega^c}(Y)||_F^2
+%   s.t. diag(C) = 0, P_{Omega}(Y - X) = 0
+%
+%   Uses accelerated prox grad (fista), rather than admm to solve
+%   self-expression problem.
+%
+%   solver = ENSC_MC_apg(X, Omega, n, lambda, gamma, eta)
 
   properties
   end
 
   methods
 
-    function self = ENSC_MC2(X, Omega, n, lambda, gamma)
+    function self = ENSC_MC_apg(X, Omega, n, lambda, gamma, eta)
+    % ENSC_MC_apg   Solver for elastic-net regularized alternating minimization for
+    %   joint subspace clustering and completion. Solves formulation
+    %
+    %   min_{Y,C} lambda/2 ||W .* (Y - YC)||_F^2 ...
+    %       + gamma ||C||_1 + (1-gamma)/2 ||C||_F^2 ...
+    %       + eta/2 ||P_{Omega^c}(Y)||_F^2
+    %   s.t. diag(C) = 0, P_{Omega}(Y - X) = 0
+    %
+    %   Uses accelerated prox grad (fista), rather than admm to solve
+    %   self-expression problem.
+    %
+    %   solver = ENSC_MC_apg(X, Omega, n, lambda, gamma, eta)
+    %
     %   Args:
     %     X: D x N incomplete data matrix.
     %     Omega: D x N binary pattern of missing entries.
     %     n: number of clusters.
-    self = self@ENSC_MC(X, Omega, n, lambda, gamma);
+    %     lambda: self-expression penalty parameter.
+    %     gamma: elastic-net tradeoff parameter.
+    %     eta: frobenius penalty parameter on completion.
+    %
+    %   Returns:
+    %     self: ENSC_MC solver instance.
+    if nargin < 6; eta = lambda; end
+    self = self@ENSC_MC(X, Omega, n, lambda, gamma, eta);
     end
 
 
@@ -33,7 +65,7 @@ classdef ENSC_MC2 < ENSC_MC
     %       maxIter: [default: 500].
     %       convThr: [default: 1e-4].
     %       prtLevel: 1=basic per-iteration output [default: 0].
-    %       logLevel: 1=basic summary info, 2=detailed per-iteration info
+    %       logLevel: 0=basic summary info, 1=detailed per-iteration info
     %         [default: 0]
     %
     %   Returns:
@@ -48,7 +80,7 @@ classdef ENSC_MC2 < ENSC_MC
         params.(fields{i}) = defaults{i};
       end
     end
-    
+
     W = ones(self.D, self.N); W(self.Omegac) = tau;
     function [f, G] = exprC_ffun(C)
     Res = Y*C - Y;

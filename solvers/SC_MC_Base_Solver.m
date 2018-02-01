@@ -6,6 +6,7 @@ classdef SC_MC_Base_Solver
 
   properties
     X; D; N; Omega; Omegac; n; lambda;
+    ppool;
   end
 
   methods
@@ -45,13 +46,15 @@ classdef SC_MC_Base_Solver
     %     params: struct containing parameters for optimization:
     %       maxIter: [default: 30].
     %       convThr: [default: 1e-6].
-    %       tauScheme: scheme for updating unobserved entries of weight matrix
-    %         W_k on each iteration. options are: 'fixed0', 'fixed1'
-    %         (unobserved fixed to 0,1), 'switch01' (0 for self-express, 1 for
-    %         completion), or any number p >= 0, in which case (W_k)_{\Omega^C}
-    %         = tau_k with tau_k = (k/maxIter)^p [default: 'fixed0'].
+    %       tauScheme: scheme for how the weight tau on unobserved entries
+    %         should be set. Must be pair of numbers [t_1 t_2] in [0, inf].
+    %         Then we set [tau_k,1 tau_k,2] = ((k-1)/maxIter).^[t_1 t_2], where
+    %         tau_k,1 constrols self-expression, and tau_k,2 completion. E.g.
+    %         tauScheme = [0 0] sets tau=1 for all iterations, while
+    %         tauScheme=[inf inf] sets tau=0 [default: [inf inf]].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
+    %       numThreads: number of parallel threads to use. [default: 4].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
     %         sub-problem iteration [default: 1].
     %       logLevel: logging level 0=minimal, 1=outer iteration info, 2=outer
@@ -72,8 +75,8 @@ classdef SC_MC_Base_Solver
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; compY_params = struct; end
     fields = {'maxIter', 'convThr', 'tauScheme', 'trueData', ...
-        'prtLevel', 'logLevel'};
-    defaults = {30, 1e-6, 'fixed0', {}, 1, 1};
+        'numThreads', 'prtLevel', 'logLevel'};
+    defaults = {30, 1e-6, [inf inf], {}, 4, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -83,7 +86,12 @@ classdef SC_MC_Base_Solver
     exprC_params.logLevel = params.logLevel-1;
     compY_params.prtLevel = params.prtLevel-1;
     compY_params.logLevel = params.logLevel-1;
-    tic; % start timer.
+    tstart = tic; % start timer.
+
+    % Open parallel pool of workers.
+    delete(gcp('nocreate'));
+    locCluster = parcluster('local');
+    self.ppool = parpool(min(params.numThreads, locCluster.NumWorkers));
 
     % Initialize constants.
     evaltrue = false;
@@ -93,19 +101,12 @@ classdef SC_MC_Base_Solver
       Xunobs = Xtrue(self.Omegac); normXunobs = norm(Xunobs);
     end
 
-    % Set up scheme for updating weights on unobserved entries.
-    tau = 0; exprC_tau = 0; adapt_tau = false;
-    if strcmpi(params.tauScheme, 'fixed1')
-      tau = 1; exprC_tau = 1;
-    elseif strcmpi(params.tauScheme, 'switch01') || strcmpi(params.tauScheme, 'firstexpr0')
-      tau = 1; exprC_tau = 0;
-    elseif isnumeric(params.tauScheme)
-      adapt_tau = true;
-      next_tau = @(k) (((k-1)/params.maxIter)^params.tauScheme);
-    end
+    % Whether tau changes across iteration.
+    taus = [0 0].^params.tauScheme;
+    adapt_tau = ~all(params.tauScheme==0) && ~all(params.tauScheme==inf);
 
-    prtformstr = ['(main alt) k=%d, obj=%.2e, L=%.2e, R=%.2e, ' ...
-        'convobj=%.2e, convC=%.2e, convY=%.2e'];
+    prtformstr = ['(main alt) k=%d, obj=%.2e, ' ...
+        'convobj=%.2e, convC=%.2e, convY=%.2e, rtime=%.2f,%.2f'];
     if evaltrue
       prtformstr = [prtformstr ', cmperr=%.3f, clstrerr=%.3f'];
     end
@@ -113,24 +114,20 @@ classdef SC_MC_Base_Solver
 
     Y = self.X; Y(self.Omegac) = 0; relthr = infnorm(self.X(self.Omega));
     C = zeros(self.N);
-    Y_last = Y; C_last = C; obj_last = self.objective(Y, C, tau);
+    Y_last = Y; C_last = C; obj_last = self.objective(Y, C, taus(2));
     history.status = 1;
     for kk=1:params.maxIter
-      if adapt_tau
-        tau = next_tau(kk); exprC_tau = tau;
-      end
-      if kk==2 && strcmpi(params.tauScheme, 'firstexpr0')
-        exprC_tau = 1;
-      end
+      % Possibly update unobserved entry weights.
+      taus = ((kk-1)/params.maxIter).^params.tauScheme;
       % Alternate updating C, Y.
       % Note previous iterates used to warm-start.
-      [C, exprC_history] = self.exprC(Y, C, exprC_tau, exprC_params);
-      [Y, compY_history] = self.compY(Y, C, tau, compY_params);
+      [C, exprC_history] = self.exprC(Y, C, taus(1), exprC_params);
+      [Y, compY_history] = self.compY(Y, C, taus(2), compY_params);
 
       % Diagnostic measures.
       convC = infnorm(C - C_last)/relthr;
       convY = infnorm(Y - Y_last)/relthr;
-      [obj, L, R] = self.objective(Y, C, tau);
+      [obj, L, R] = self.objective(Y, C, taus(2)); % Choice of tau_2 arbitrary.
       convobj = (obj_last - obj)/obj;
       true_scores = [];
       if evaltrue
@@ -141,11 +138,13 @@ classdef SC_MC_Base_Solver
 
       % Printing, logging.
       if params.prtLevel > 0
-        fprintf(prtformstr, [kk obj L R convobj convC convY true_scores]);
+        subprob_rts = [exprC_history.rtime compY_history.rtime];
+        fprintf(prtformstr, [kk obj convobj convC convY subprob_rts true_scores]);
       end
       if params.logLevel > 0
         history.obj(kk,:) = [obj L R];
         history.conv(kk,:) = [convobj convC convY];
+        history.taus(kk,:) = taus;
         if evaltrue
           history.true_scores(kk,:) = true_scores;
         end
@@ -160,14 +159,19 @@ classdef SC_MC_Base_Solver
         history.status = 0;
         break
       end
-
+      if max(convC, convY) > 1e5
+        fprintf('Divergence!\n');
+        history.status = 2;
+        break
+      end
       C_last = C; Y_last = Y; obj_last = obj;
     end
     history.iter = kk;
     if ~evaltrue
       groups = self.cluster(C);
     end
-    history.rtime = toc;
+    history.rtime = toc(tstart);
+    delete(gcp);
     end
 
 
