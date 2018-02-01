@@ -28,8 +28,8 @@ else
 end
 
 opt_params.trueData = {X, groupsTrue};
-opt_params.prtLevel = 2; opt_params.logLevel = 2;
-opt_params.maxIter = 5;
+opt_params.prtLevel = 1; opt_params.logLevel = 2;
+opt_params.maxIter = 50;
 opt_params.numThreads = 1;
 
 profile on;

@@ -88,7 +88,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
     %       mu: augmented Lagrangian parameter, larger values indicate smaller
     %         steps [default: 10].
     %       maxIter: [default: 200].
-    %       convThr: [default: 1e-4].
+    %       convThr: [default: 1e-3].
     %       prtLevel: 1=basic per-iteration output [default: 0].
     %       logLevel: 0=basic summary info, 1=detailed per-iteration info
     %         [default: 0]
@@ -99,7 +99,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
 
     % Set defaults.
     fields = {'mu', 'maxIter', 'convThr', 'prtLevel', 'logLevel'};
-    defaults = {10, 200, 1e-4, 0, 0};
+    defaults = {10, 200, 1e-3, 0, 0};
     for i=1:length(fields)
       if ~isfield(params, fields{i})
         params.(fields{i}) = defaults{i};
@@ -189,7 +189,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
     %     history: Struct containing minimal diagnostic info.
     tstart = tic; % start timer.
     W = ones(self.D, self.N); W(self.Omegac) = tau;
-    Nunobs = sum(Omegac, 2);
+    Nunobs = sum(self.Omegac, 2);
     IC = eye(self.N) - C;
     Y = self.X; % Initialize Y so that it agrees on observed entries.
     for ii=1:self.D
@@ -206,7 +206,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
       else
         Y(ii,omegaic) = (self.lambda*A(:,omegaic)'*A(:,omegaic) + ...
             self.eta*eye(Nunobs(ii))) \ ...
-            self.lambda*A(:,omegaic)'*(-A(:,omegai)*xi(omegai));
+            (self.lambda*A(:,omegaic)'*(-A(:,omegai)*xi(omegai)));
       end
     end
     history.iter = 0; history.status = 0; history.rtime = toc(tstart);

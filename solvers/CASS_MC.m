@@ -81,7 +81,7 @@ classdef CASS_MC < SC_MC_Base_Solver
     %       mu: augmented Lagrangian parameter, larger values indicate smaller
     %         steps [default: 10].
     %       maxIter: [default: 200].
-    %       convThr: [default: 1e-4].
+    %       convThr: [default: 1e-3].
     %       prtLevel: 1=basic per-iteration output [default: 0].
     %       logLevel: 0=basic summary info, 1=detailed per-iteration info
     %         [default: 0]
@@ -192,7 +192,7 @@ classdef CASS_MC < SC_MC_Base_Solver
     %       mu: augmented Lagrangian parameter, larger values indicate smaller
     %         steps [default: 10].
     %       maxIter: [default: 200].
-    %       convThr: [default: 1e-4].
+    %       convThr: [default: 1e-3].
     %       prtLevel: 1=basic per-iteration output [default: 0].
     %       logLevel: 0=basic summary info, 1=detailed per-iteration info
     %         [default: 0]
