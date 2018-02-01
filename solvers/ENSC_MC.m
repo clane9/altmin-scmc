@@ -206,7 +206,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
       else
         Y(ii,omegaic) = (self.lambda*A(:,omegaic)'*A(:,omegaic) + ...
             self.eta*eye(Nunobs(ii))) \ ...
-            A(:,omegaic)'*(-A(:,omegai)*xi(omegai));
+            self.lambda*A(:,omegaic)'*(-A(:,omegai)*xi(omegai));
       end
     end
     history.iter = 0; history.status = 0; history.rtime = toc(tstart);
