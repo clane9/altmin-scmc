@@ -115,13 +115,12 @@ classdef CASS_MC < SC_MC_Base_Solver
     end
 
     % Initialize variables.
-    % [LL, ULL] = deal(zeros(self.D, self.N, self.N));
-    ULL = zeros(self.D, self.N, self.N);
+    [LL, ULL] = deal(zeros(self.D, self.N, self.N));
     CI = C; CI(1:(self.N+1):end) = -1;
     repCI = repmat(CI, [1 1 self.D]);
     repCI = permute(repCI, [3 1 2]);
     allYdiagCI = repY.*repCI;
-    % Lrnks = zeros(self.N, 1);
+    Lrnks = zeros(self.N, 1);
 
     prtformstr = 'k=%d, feasLL=%.2e, minr=%d, maxr=%d, rt=%.2f \n';
 
@@ -129,16 +128,13 @@ classdef CASS_MC < SC_MC_Base_Solver
     for kk=1:params.maxIter
       itertstart = tic;
       % Update each of the N L^i by SVD shrinkage-thresholding (expensive!!).
-      [LL, Lrnks] = self.updateLL(allYdiagCI - ULL, params.mu);
-      % QQ = allYdiagCI - ULL;
-      % parfor ii=1:self.N
-      %   Q = QQ(:,:,ii); L = zeros(size(Q));
-      %   Qnorm = sqrt(sum(Q.^2));
-      %   nzmask = Qnorm > 1e-5*max(Qnorm); % Often entire columns will be zero.
-      %   [L(:,nzmask), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu);
-      %   LL(:,:,ii) = L;
-      % end
-      % Update Y by solving least-squares problem.
+      QQ = allYdiagCI - ULL;
+      for ii=1:self.N
+        Q = QQ(:,:,ii);
+        Qnorm = sqrt(sum(Q.^2));
+        nzmask = Qnorm > 1e-5*max(Qnorm); % Often entire columns will be zero.
+        [LL(:,nzmask,ii), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu);
+      end
       % Update each c_i separately by solving a least-squares problem.
       for ii=1:self.N
         A = ldiagmult(W(:,ii), Y);
@@ -234,11 +230,10 @@ classdef CASS_MC < SC_MC_Base_Solver
     R = chol(M);
 
     % Initialize variables.
-    % [LL, ULL] = deal(zeros(self.D, self.N, self.N));
-    ULL = zeros(self.D, self.N, self.N);
+    [LL, ULL] = deal(zeros(self.D, self.N, self.N));
     Res = Y*CI; A = self.Omegac .* Res; B = self.Omega .* Res;
     [E, UE] = deal(zeros(self.D, self.N));
-    % Lrnks = zeros(self.N, 1);
+    Lrnks = zeros(self.N, 1);
 
     prtformstr = 'k=%d, feasLL=%.2e, feasE=%.2e, minr=%d, maxr=%d, rt=%.2f \n';
 
@@ -246,15 +241,13 @@ classdef CASS_MC < SC_MC_Base_Solver
     for kk=1:params.maxIter
       itertstart = tic;
       % Update each of the N L^i by SVD shrinkage-thresholding (expensive!!).
-      [LL, Lrnks] = self.updateLL(allYdiagCI - ULL, params.mu);
-      % QQ = allYdiagCI - ULL;
-      % parfor ii=1:self.N
-      %   Q = QQ(:,:,ii); L = zeros(size(Q));
-      %   Qnorm = sqrt(sum(Q.^2));
-      %   nzmask = Qnorm > 1e-5*max(Qnorm); % Often entire columns will be zero.
-      %   [L(:,nzmask), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu);
-      %   LL(:,:,ii) = L;
-      % end
+      QQ = allYdiagCI - ULL;
+      for ii=1:self.N
+        Q = QQ(:,:,ii);
+        Qnorm = sqrt(sum(Q.^2));
+        nzmask = Qnorm > 1e-5*max(Qnorm); % Often entire columns will be zero.
+        [LL(:,nzmask,ii), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu);
+      end
       % Update Y by solving least-squares problem.
       leastsqr_target = params.mu*sum((LL + ULL).*repCI, 3) + ...
           params.mu*(self.X + E - UE);
@@ -304,34 +297,6 @@ classdef CASS_MC < SC_MC_Base_Solver
     history.iter = kk;
     history.rtime = toc(tstart);
     end
-
-
-    function [LL, Lrnks] = updateLL(self, QQ, mu, ~)
-    nbatches = self.ppool.NumWorkers;
-    maxbatchsize = ceil(self.N/self.ppool.NumWorkers);
-    LL = cell(1,nbatches); Lrnks = cell(1,nbatches);
-    QQbatches = cell(1,nbatches); batchsizes = zeros(nbatches,1);
-    for ii=1:nbatches
-      batchstart = (ii-1)*maxbatchsize;
-      batchstop = min(batchstart+maxbatchsize, self.N);
-      batchsizes(ii) = batchstop - batchstart;
-      QQbatches{ii} = QQ(:,:,(batchstart+1):batchstop);
-    end
-    for ii=1:nbatches
-      QQbatch = QQbatches{ii};
-      LLbatch = zeros(size(QQbatch));
-      Lrnksbatch = zeros(batchsizes(ii),1);
-      for jj=1:batchsizes(ii)
-        Q = QQbatch(:,:,jj);
-        Qnorm = sqrt(sum(Q.^2));
-        nzmask = Qnorm > 1e-5*max(Qnorm); % Often entire columns will be zero.
-        [LLbatch(:,nzmask,jj), Lrnksbatch(jj)] = prox_nuc(Q(:,nzmask), 1/mu);
-      end
-      LL{ii} = LLbatch; Lrnks{ii} = Lrnksbatch;
-    end
-    LL = cat(3, LL{:}); Lrnks = cat(1, Lrnks{:});
-    end
-
 
   end
 

@@ -6,7 +6,6 @@ classdef SC_MC_Base_Solver
 
   properties
     X; D; N; Omega; Omegac; n; lambda;
-    ppool;
   end
 
   methods
@@ -54,7 +53,6 @@ classdef SC_MC_Base_Solver
     %         tauScheme=[inf inf] sets tau=0 [default: [inf inf]].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
-    %       numThreads: number of parallel threads to use. [default: 4].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
     %         sub-problem iteration [default: 1].
     %       logLevel: logging level 0=minimal, 1=outer iteration info, 2=outer
@@ -75,8 +73,8 @@ classdef SC_MC_Base_Solver
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; compY_params = struct; end
     fields = {'maxIter', 'convThr', 'tauScheme', 'trueData', ...
-        'numThreads', 'prtLevel', 'logLevel'};
-    defaults = {30, 1e-6, [inf inf], {}, 4, 1, 1};
+        'prtLevel', 'logLevel'};
+    defaults = {30, 1e-6, [inf inf], {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -87,11 +85,6 @@ classdef SC_MC_Base_Solver
     compY_params.prtLevel = params.prtLevel-1;
     compY_params.logLevel = params.logLevel-1;
     tstart = tic; % start timer.
-
-    % Open parallel pool of workers.
-    delete(gcp('nocreate'));
-    locCluster = parcluster('local');
-    self.ppool = parpool(min(params.numThreads, locCluster.NumWorkers));
 
     % Initialize constants.
     evaltrue = false;
@@ -171,7 +164,6 @@ classdef SC_MC_Base_Solver
       groups = self.cluster(C);
     end
     history.rtime = toc(tstart);
-    delete(gcp);
     end
 
 
