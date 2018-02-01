@@ -1,0 +1,49 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage{mystyle}
+
+\begin{document}
+
+\title{CASS Completion Notes}
+\author{Connor Lane}
+\maketitle
+
+The goal here is to derive a closed-form solution to the $Y$-update of the
+completion sub-problem
+\[ \minimize_Y \lambda/2 \|(YC) \odot W \|_F^2 + \mu/2 \sum_{i=1}^N \|L^i - Y
+\diag(c_i) + U^i \|_F^2 \quad \text{s.t.} \quad P_\Omega(Y-X) = 0. \]
+We will solve this problem separately for each row $y_j$, $j=1, \dotsc, D$. Let
+$x_j$, $w_j$, $\omega_j$, $\ell^i_j$, $u^i_j$ similarly be rows for the
+corresponding matrices. We now want to solve
+\[\minimize_{y_j} \lambda/2 \| (\diag(w_j) C^\top) y_j\|_2^2 + \mu/2
+\sum_{i=1}^N \|\diag(c_i) y_j - (\ell_j^i + u_j^i)\|_2^2 \quad \text{s.t.}
+\quad P_{\omega_j}(y_j - x_j) = 0. \]
+Dropping subscripts and abbreviating $A = \diag(w_j) C^\top$, $d_i = \ell^i_j +
+u^i_j$, the problem becomes
+\[\minimize_{y} \lambda/2 \| A y\|_2^2 + \mu/2 \sum_{i=1}^N \|\diag(c_i) y -
+d_i\|_2^2 \quad \text{s.t.} \quad P_{\omega}(y - x) = 0. \]
+Now, to encode the linear $P_\omega$ constraint, we can pull out the
+constrained values from $y$
+\[\minimize_{y_{\omega^c}} \lambda/2 \| A_{\omega^c} y_{\omega^c} + A_{\omega}
+x_{\omega} \|_2^2 + \mu/2 \sum_{i=1}^N \|\diag(c_i)_{\omega^c} y_{\omega^c} +
+\diag(c_i)_{\omega} x_{\omega} - d_i\|_2^2. \]
+Next, form the first order optimality condition
+\begin{gather*}
+  \lambda A_{\omega^c}^\top( A_{\omega^c} y_{\omega^c} + A_{\omega}
+  x_{\omega}) + \mu \sum_i \diag(c_i)_{\omega^c}^\top (\diag(c_i)_{\omega^c}
+  y_{\omega^c} + \diag(c_i)_{\omega} x_{\omega} - d_i) = 0 \\
+  (\lambda A_{\omega^c}^\top A_{\omega^c} + \mu \sum_i
+  \diag(c_i)_{\omega^c}^\top \diag(c_i)_{\omega^c}) y_{\omega^c} = - \lambda
+  A_{\omega^c}^\top (A_{\omega} x_\omega) - \mu \sum_i \diag(c_i)_{\omega^c}^\top
+  (\diag(c_i)_{\omega} x_{\omega} - d_i) \\
+  (\lambda A_{\omega^c}^\top A_{\omega^c} + \mu \diag((C^{\circ 2}
+  \1)_{\omega^c})) y_{\omega^c} = - \lambda A_{\omega^c}^\top (A_{\omega}
+  x_\omega) + \mu \sum_i \diag(c_i)_{\omega^c}^\top  d_i \\
+  (\lambda A_{\omega^c}^\top A_{\omega^c} + \mu \diag((C^{\circ 2}
+  \1)_{\omega^c})) y_{\omega^c} = - \lambda A_{\omega^c}^\top (A_{\omega}
+  x_\omega) +  \mu ((C \odot D)\1)_{\omega^c}
+\end{gather*}
+where the second to last line holds in part because $\diag(c_i)_{\omega^c}^\top
+\diag(c_i)_\omega = 0$, and $D = [d_1 \dots d_N]$ is the $j$th row-slice of the
+3d tensor $L + U$, arranged in a  matrix.
+
+\end{document}

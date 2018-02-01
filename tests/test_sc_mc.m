@@ -21,6 +21,8 @@ elseif strcmpi(formulation, 'ENSC_MC_apg')
       form_params.gamma);
 elseif strcmpi(formulation, 'CASS_MC')
   solver = CASS_MC(X.*Omega, Omega, n, form_params.lambda);
+elseif strcmpi(formulation, 'CASS_MC2')
+  solver = CASS_MC2(X.*Omega, Omega, n, form_params.lambda);
 else
   error('formulation not implemented.')
 end
