@@ -30,11 +30,10 @@ end
 opt_params.trueData = {X, groupsTrue};
 opt_params.prtLevel = 1; opt_params.logLevel = 2;
 opt_params.maxIter = 10;
-opt_params.numThreads = 1;
 
-profile on;
+% profile on;
 [groups, C, Y, history] = solver.solve(opt_params, exprC_params, compY_params);
-profile off;
+% profile off;
 
 fname = sprintf('%s_%s_n%d_d%d_D%d_Ng%d_sigma%.0e_rho%.1f_delta%.1f_seed%d.mat', ...
     prefix, formulation, n, d, D, Ng, sigma, rho, delta, seed);
