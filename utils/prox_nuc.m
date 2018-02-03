@@ -35,6 +35,7 @@ else
   while ~OK
     r = min(r+incre, mindim);
     [U, S, V] = svds(X, r);
+    % [U, S, V] = lansvd(X, r, 'L');
     OK = (S(end) <= lamb) || ( r == mindim );
   end
 end

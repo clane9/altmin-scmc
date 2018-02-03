@@ -1,0 +1,37 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage{../mystyle}
+
+\begin{document}
+
+\title{CASS ALS L update}
+\author{Connor Lane}
+\maketitle
+
+Here I want to accelerate the very slow $N$-fold singular-value thresholding
+step that appears both in CASS self-expression and completion, and takes $\sim
+80\%$ compute time. The idea will be to solve factorized variants of the
+problem jointly, for all $i=1,\dotsc,N$, using alternating-least-squares
+updates.
+
+The optimization problem we want to solve is
+\[\minimize_{L_i} \|L_i\|_* + \lambda/2 \|L_i - Z_i\|_F^2\]
+for each $i=1,\dotsc,N$. By introducing a rank-constraint $\rank(L_i) \leq d$,
+this problem becomes equivalent to
+\[\minimize_{U_i\in \RR^{D \times d}, V_i \in \RR^{N \times d}} 1/2(\|U_i\|_F^2
++ \|V_i\|_F^2) + \lambda/2 \|U_i V_i^\top - Z_i\|_F^2.\]
+We can solve this problem by alternating least squares, as in (Hastie et al.,
+JMLR 2015). The alternating updates on the $k$th iteration are given by the
+linear equations
+\[ U_i^{k+1}(I + \lambda (V_i^{k})^\top V_i^{k}) = \lambda Z_i V^k_i \qquad
+V_i^{k+1}(I + \lambda (U_i^{k+1})^\top U_i^{k+1}) = \lambda Z_i^\top U^{k+1}_i. \]
+Now dropping $k$ superscripts, and form concatenated matrices $\bar{U} =
+[U_1 \cdots U_N] \in \RR^{D \times d N}$, $\bar{V} = [V_1 \cdots V_N] \in
+\RR^{N \times d N}$, and $\bar{Z} = [Z_1 \cdots Z_N] \in \RR^{D \times N^2}$.
+Similarly, define block diagonal matrices $\hat{U}\in \RR^{DN \times d N}$,
+$\hat{V}\in\RR^{N^2 \times d N}$. Let $\bar{Z^*} = [Z_1^\top \cdots
+Z_N^\top] \in \RR^{N \times D N}$. Then the above equations can be combined in
+a single expression \[ \bar{U}(I + \lambda \hat{V}^\top \hat{V}) = \lambda
+\bar{Z} \hat{V} \qquad \bar{V}(I + \lambda \hat{U}^\top \hat{U}) = \lambda
+\bar{Z^*} \hat{U}.\]
+
+\end{document}
