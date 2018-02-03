@@ -304,6 +304,38 @@ classdef CASS_MC < SC_MC_Base_Solver
     history.rtime = toc(tstart);
     end
 
+
+    function lambda = adapt_lambda(self, alpha, Y, tau)
+    % adapt_lambda    Compute lambda as alpha*lambda_min where c_i = 0 is a
+    %   solution for some i iff lambda <= lambda_min.
+    %
+    %   solver = solver.adapt_lambda(alpha, Y, tau)
+    %
+    %   Args:
+    %     alpha: penalty parameter > 1.
+    %     Y: D x N data matrix.
+    %     tau: Non-negative scalar representing reconstruction penalty weight on
+    %       unobserved entries.
+    %
+    %   Returns:
+    %     lambda: adapted lambda.
+    W = ones(self.D, self.N); W(self.Omegac) = tau;
+    lambdamins = zeros(N,1);
+    for ii=1:self.N
+      wY = ldiagmult(W(:,ii), Y);
+      wy = wY(:,ii); wYtrim = trimmat(wY,ii);
+      beta = wy'*wYtrim;
+      cvx_begin
+        variable U(self.D, self.N);
+        minimize(norm(U,2));
+        subject to
+          sum(U.*Y) == beta;
+      cvx_end
+      lambdamins(ii) = 1/norm(U,2);
+    end
+    lambdamin = max(lambdamins);
+    lambda = alpha*lambdamin;
+    end
   end
 
 end

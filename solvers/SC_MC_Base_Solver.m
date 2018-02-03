@@ -158,7 +158,7 @@ classdef SC_MC_Base_Solver
         break
       end
       if toc(tstart) >= params.maxTime
-        fprintf('Timeout!'\n');
+        fprintf('Timeout!\n');
         break
       end
       if max(convC, convY) > 1e5

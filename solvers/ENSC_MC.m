@@ -212,6 +212,32 @@ classdef ENSC_MC < SC_MC_Base_Solver
     history.iter = 0; history.status = 0; history.rtime = toc(tstart);
     end
 
+
+    function lambda = adapt_lambda(self, alpha, Y, tau)
+    % adapt_lambda    Compute lambda as alpha*lambda_min where c_i = 0 is a
+    %   solution for some i iff lambda <= lambda_min.
+    %
+    %   solver = solver.adapt_lambda(alpha, Y, tau)
+    %
+    %   Args:
+    %     alpha: penalty parameter > 1.
+    %     Y: D x N data matrix.
+    %     tau: Non-negative scalar representing reconstruction penalty weight on
+    %       unobserved entries.
+    %
+    %   Returns:
+    %     lambda: adapted lambda.
+    W = ones(self.D, self.N); W(self.Omegac) = tau;
+    lambdamins = zeros(self.N,1);
+    for ii=1:self.N
+      wY = ldiagmult(W(:,ii), Y);
+      wy = wY(:,ii); wYtrim = trimmat(wY,ii);
+      lambdamins(ii) = 1/max(abs(wYtrim'*wy));
+    end
+    lambdamin = max(lambdamins);
+    lambda = alpha*lambdamin*self.gamma;
+    end
+
     end
 
 end
