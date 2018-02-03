@@ -47,6 +47,8 @@ classdef CASS_MC2 < CASS_MC
     %   min_Y \lambda/2 ||W .* (Y - YC)||_F^2 + ...
     %     \sum_{i=1}^N ||Y diag(c_i - e_i)||_*
     %
+    %   using admm by introducing auxiliary variables L_i = Y diag(c_i - e_i)
+    %
     %   [Y, history] = solver.compY(Y, C, tau, params)
     %
     %   Args:

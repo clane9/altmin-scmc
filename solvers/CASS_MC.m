@@ -21,6 +21,8 @@ classdef CASS_MC < SC_MC_Base_Solver
     %       + \sum_{i=1}^N ||Y diag(c_i - e_i)||_*
     %   s.t. diag(C) = 0, P_{Omega}(Y - X) = 0
     %
+    %   using admm by introducing auxiliary variables L_i = Y diag(c_i - e_i)
+    %
     %   solver = CASS_MC(X, Omega, n, lambda)
     %
     %   Args:
@@ -71,6 +73,8 @@ classdef CASS_MC < SC_MC_Base_Solver
     %     s.t. diag(C) = 0.
     %
     %   [C, history] = solver.exprC(Y, C, tau, params)
+    %
+    %   using admm by introducing auxiliary variables L_i = Y diag(c_i - e_i)
     %
     %   Args:
     %     Y: D x N incomplete data matrix.
@@ -179,6 +183,8 @@ classdef CASS_MC < SC_MC_Base_Solver
     %
     %   min_Y \lambda/2 ||W .* (Y - YC)||_F^2 + ...
     %     \sum_{i=1}^N ||Y diag(c_i - e_i)||_*
+    %
+    %   using admm by introducing auxiliary variables L_i = Y diag(c_i - e_i)
     %
     %   [Y, history] = solver.compY(Y, C, tau, params)
     %
