@@ -21,6 +21,7 @@ opt_params.tauScheme = tauScheme;
 opt_params.trueData = {X, groupsTrue};
 opt_params.prtLevel = 1; opt_params.logLevel = 2;
 opt_params.maxIter = 30; opt_params.convThr = 1e-6;
+opt_params.maxTime = ceil(60*10 - 120); % ~~10 min.
 
 [groups, C, Y, history] = solver.solve(opt_params);
 

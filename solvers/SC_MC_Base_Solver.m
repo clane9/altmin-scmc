@@ -43,8 +43,9 @@ classdef SC_MC_Base_Solver
     %
     %   Args:
     %     params: struct containing parameters for optimization:
-    %       maxIter: [default: 30].
-    %       convThr: [default: 1e-6].
+    %       maxIter: maximum iterations [default: 30].
+    %       maxTime: maximum time allowed in seconds [default: Inf].
+    %       convThr: convergence threshold [default: 1e-6].
     %       tauScheme: scheme for how the weight tau on unobserved entries
     %         should be set. Must be pair of numbers [t_1 t_2] in [0, inf].
     %         Then we set [tau_k,1 tau_k,2] = ((k-1)/maxIter).^[t_1 t_2], where
@@ -73,9 +74,9 @@ classdef SC_MC_Base_Solver
     if nargin < 2; params = struct; end
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; compY_params = struct; end
-    fields = {'maxIter', 'convThr', 'tauScheme', 'initMC', 'trueData', ...
-        'prtLevel', 'logLevel'};
-    defaults = {30, 1e-6, [inf inf], true, {}, 1, 1};
+    fields = {'maxIter', 'maxTime', 'convThr', 'tauScheme', 'initMC', ...
+        'trueData', 'prtLevel', 'logLevel'};
+    defaults = {30, Inf, 1e-6, [inf inf], true, {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -154,6 +155,10 @@ classdef SC_MC_Base_Solver
       % Check stopping cond: objective fails to decrease, or iterates don't change.
       if (~adapt_tau && convobj < params.convThr) || (max(convC, convY) < params.convThr);
         history.status = 0;
+        break
+      end
+      if toc(tstart) >= params.maxTime
+        fprintf('Timeout!'\n');
         break
       end
       if max(convC, convY) > 1e5
