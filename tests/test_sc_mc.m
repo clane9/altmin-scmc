@@ -6,7 +6,7 @@ if nargin < 13; exprC_params = struct; end
 if nargin < 14; compY_params = struct; end
 
 rng(seed);
-[X, Omega, groupsTrue] = generate_scmd_data_matrix(n, d, D, Ng, sigma, rho, delta, seed);
+[X, groupsTrue, Omega] = generate_scmd_data_matrix(n, d, D, Ng, sigma, rho, delta, seed);
 Xnorm = sqrt(sum(X.^2));
 X = X ./ repmat(Xnorm, [D 1]);
 
@@ -29,7 +29,7 @@ end
 
 opt_params.trueData = {X, groupsTrue};
 opt_params.prtLevel = 1; opt_params.logLevel = 2;
-opt_params.maxIter = 50;
+opt_params.maxIter = 10;
 opt_params.numThreads = 1;
 
 profile on;

@@ -2,7 +2,7 @@ function eval_ENSC_methods_013118(prefix,form,n,d,D,Ng,rho,seed, ...
     lambda,gamma,tauScheme)
 
 rng(seed);
-[X, Omega, groupsTrue] = generate_scmd_data_matrix(n,d,D,Ng,0,rho,1,seed);
+[X, groupsTrue, Omega] = generate_scmd_data_matrix(n,d,D,Ng,0,rho,1,seed);
 Xnorm = sqrt(sum(X.^2));
 X = X ./ repmat(Xnorm, [D 1]);
 Xobs = X.*Omega;

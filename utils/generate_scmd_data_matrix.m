@@ -1,4 +1,4 @@
-function [X, Omega, groupsTrue] = generate_scmd_data_matrix(n, d, D, Ng, ...
+function [X, groupsTrue, Omega] = generate_scmd_data_matrix(n, d, D, Ng, ...
     sigma, rho, delta, seed)
 % generate_scmd_data_matrix   Generate a synthetic dataset containing several
 %   subspaces with missing data.
@@ -29,9 +29,9 @@ function [X, Omega, groupsTrue] = generate_scmd_data_matrix(n, d, D, Ng, ...
 %
 %   Returns:
 %     X: D x (Ng*n) complete, noisy data matrix.
+%     groupsTrue: (Ng*n) x 1 cluster assignment.
 %     Omega: D x (Ng*n) logical indicator matrix of observed entries, so that the
 %       observed data Xobs = X.*Omega.
-%     groupsTrue: (Ng*n) x 1 cluster assignment.
 rng(seed);
 
 % Sample noiseless data from n subspaces.
