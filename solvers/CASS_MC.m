@@ -138,6 +138,7 @@ classdef CASS_MC < SC_MC_Base_Solver
         Qnorm = sqrt(sum(Q.^2));
         nzmask = Qnorm > 1e-5*max(Qnorm); % Often entire columns will be zero.
         [LL(:,nzmask,ii), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu);
+        % [LL(:,nzmask,ii), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu, Lrnks(ii));
       end
       % Update each c_i separately by solving a least-squares problem.
       for ii=1:self.N

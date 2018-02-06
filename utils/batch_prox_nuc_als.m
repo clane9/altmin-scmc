@@ -7,8 +7,8 @@ function [UU, VV] = batch_prox_nuc_als(UU, VV, ZZ, lamb)
 %
 %   [UU, VV] = batch_prox_nuc_als(UU, VV, ZZ, lamb)
 
-[~, ~, M] = size(ZZ); d = size(UU,2);
-bigI = speye(d*M);
+[~, N, M] = size(ZZ); d = size(UU,2);
+lambbigI = lamb*speye(d*M);
 
 % UUstack = reshape(UU, size(UU,1), []);
 VVstack = reshape(VV, size(VV,1), []);
@@ -21,12 +21,16 @@ for ii=1:20
   % multiplications are still slow... Must be about how the entries are stored.
   % Computing standard proximal operator in a loop is still faster.
   VVbd = stacktobd(VVstack, d);
-  UUstack = lamb*ZZstack*VVbd / (bigI + lamb*(VVbd'*VVbd));
+  AU = (lambbigI + (VVbd'*VVbd));
+  bU = ZZstack*VVbd;
+  UUstack = bU / AU;
   UUbd = stacktobd(UUstack, d);
-  VVstack = lamb*ZZtstack*UUbd / (bigI + lamb*(UUbd'*UUbd));
-  % obj = 0.5*(sum(UUstack(:).^2) + sum(VVstack(:).^2)) + ...
-  %     lamb*sum(sum((UUbd*VVbd' - stacktobd(ZZstack, N)).^2));
-  % fprintf('%.4e \n', obj);
+  AV = (lambbigI + (UUbd'*UUbd));
+  bV = ZZtstack*UUbd;
+  VVstack = bV / AV;
+  obj = lamb*0.5*(sum(UUstack(:).^2) + sum(VVstack(:).^2)) + ...
+     0.5*sum(sum((UUbd*VVbd' - stacktobd(ZZstack, N)).^2));
+  fprintf('%.4e \n', obj);
 end
 UU = reshape(UUstack, size(UU));
 VV = reshape(VVstack, size(VV));
