@@ -12,7 +12,7 @@ if strcmpi(form, 'ENSC_MC')
 elseif strcmpi(form, 'ENSC_MC_apg')
   solver = ENSC_MC_apg(Xobs, Omega, n, lambda, gamma, 0);
 elseif strcmpi(form, 'ENSC_Group_MC')
-  solver = ENSC_Group_MC(Xobs, Omega, n, lambda, gamma, 0);
+  solver = ENSC_Group_MC(Xobs, Omega, n, lambda, gamma);
 else
   error('formulation not implemented.')
 end
@@ -21,7 +21,7 @@ opt_params.tauScheme = tauScheme;
 opt_params.trueData = {X, groupsTrue};
 opt_params.prtLevel = 1; opt_params.logLevel = 2;
 opt_params.maxIter = 20; opt_params.convThr = 1e-3; % Relaxed these relative to previous.
-opt_params.maxTime = ceil(60*5 - 60); % ~~10 min.
+opt_params.maxTime = ceil(60*5 - 60); % ~~5 min.
 
 [groups, C, Y, history] = solver.solve(opt_params);
 
