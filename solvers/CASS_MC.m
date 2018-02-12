@@ -219,30 +219,33 @@ classdef CASS_MC < SC_MC_Base_Solver
     tstart = tic; % start timer.
 
     % Set constants.
-    tausqr = tau.^2;
+    W = ones(self.D, self.N); W(self.Omegac) = tau;
     CI = C; CI(1:(self.N+1):end) = -1;
     relthr = infnorm(Y(self.Omega));
     % ith slice of repC contains 1 c_i^T.
     % Used for multiplying slices of DxNxN tensor by diag(c_i).
     repCI = repmat(CI, [1 1 self.D]);
     repCI = permute(repCI, [3 1 2]);
-    repY = repmat(Y, [1 1 self.N]);
-    allYdiagCI = repY.*repCI;
+    sumCIsqr = sum(CI.^2,2);
 
-    % Cholesky factorization for Y update.
-    % NOTE: will need to move this inside loop if decide to adapt mu.
-    M = self.lambda*(tausqr+1)*(CI*CI') + ...
-        params.mu*diag(sum(CI.^2, 2)) + ...
-        params.mu*eye(self.N);
-    R = chol(M);
+    % Pre-compute Cholesky factorizations for Y updates.
+    RR = cell(1,self.D);
+    for ii=1:self.D
+      omegaic = self.Omegac(ii,:);
+      A = ldiagmult(W(ii,:)', CI');
+      M = (self.lambda*(A(:,omegaic)'*A(:,omegaic)) + ...
+          params.mu*diag(sumCIsqr(omegaic)));
+      RR{ii} = chol(M);
+    end
 
     % Initialize variables.
     [LL, ULL] = deal(zeros(self.D, self.N, self.N));
-    Res = Y*CI; A = self.Omegac .* Res; B = self.Omega .* Res;
-    [E, UE] = deal(zeros(self.D, self.N));
     Lrnks = zeros(self.N, 1);
+    Y(self.Omega) = self.X(self.Omega);
+    repY = repmat(Y, [1 1 self.N]);
+    allYdiagCI = repY.*repCI;
 
-    prtformstr = 'k=%d, feasLL=%.2e, feasE=%.2e, minr=%d, maxr=%d, rt=%.2f \n';
+    prtformstr = 'k=%d, feasLL=%.2e, minr=%d, maxr=%d, rt=%.2f \n';
 
     history.status = 1;
     for kk=1:params.maxIter
@@ -254,53 +257,40 @@ classdef CASS_MC < SC_MC_Base_Solver
         Qnorm = sqrt(sum(Q.^2));
         nzmask = Qnorm > 1e-5*max(Qnorm); % Often entire columns will be zero.
         [LL(:,nzmask,ii), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu);
+        % [LL(:,nzmask,ii), Lrnks(ii)] = prox_nuc(Q(:,nzmask), 1/params.mu, Lrnks(ii));
       end
-      % Update Y by solving least-squares problem.
-      leastsqr_target = params.mu*sum((LL + ULL).*repCI, 3) + ...
-          params.mu*(self.X + E - UE);
-      if tau < 1
-        leastsqr_target = leastsqr_target + self.lambda*(A*CI');
-        if tau > 0
-          leastsqr_target = leastsqr_target + self.lambda*tausqr*(B*CI');
-        end
+      % Update Y by solving row-by-row least-squares problem.
+      for ii=1:self.D
+        omegai = self.Omega(ii,:); omegaic = self.Omegac(ii,:);
+        xi = self.X(ii,:)';
+        A = ldiagmult(W(ii,:)', CI');
+        D = squeeze(LL(ii,:,:) + ULL(ii,:,:)); % N x N row-slice of LL+ULL.
+        b = -self.lambda*A(:,omegaic)'*(A(:,omegai)*xi(omegai)) + ...
+            params.mu*sum(CI(omegaic,:).*D(omegaic,:),2);
+        Y(ii,omegaic) = RR{ii} \ (RR{ii}' \ b);
       end
-      Y = (leastsqr_target / R) / R';
-      % Update A, B variables used to absorb errors on \Omega, \Omega^c.
-      Res = Y*CI;
-      if tau < 1
-        A = self.Omegac .* Res;
-        if tau > 0
-          B = self.Omega .* Res;
-        end
-      end
-      % Update E to used to promote P_Omega constraint.
-      E = self.Omegac .* (Y - self.X + UE);
       % Update scaled Lagrange multipliers.
       repY = repmat(Y, [1 1 self.N]);
       allYdiagCI = repY.*repCI;
       conLL = LL - allYdiagCI;
-      conE = Y - self.X - E;
       ULL = ULL + conLL;
-      UE = UE + conE;
 
       % Diagnostic measures, printing, logging.
-      feasLL = infnorm(conLL)/relthr;
-      feasE = infnorm(conE)/relthr;
+      feas = infnorm(conLL)/relthr;
       if params.prtLevel > 0
-        fprintf(prtformstr, kk, feasLL, feasE, min(Lrnks), max(Lrnks), toc(itertstart));
+        fprintf(prtformstr, kk, feas, min(Lrnks), max(Lrnks), toc(itertstart));
       end
       if params.logLevel > 0
-        history.feas(kk,:) = [feasLL feasE];
+        history.feas(kk) = feas;
         history.Lrnk(kk,:) = [min(Lrnks) median(Lrnks) max(Lrnks)];
       end
 
-      if max(feasLL, feasE) < params.convThr
+      if feas < params.convThr
         history.status = 0;
         break
       end
     end
     % Ensure P_Omega constraint is satisfied exactly.
-    Y(self.Omega) = self.X(self.Omega);
     history.iter = kk;
     history.rtime = toc(tstart);
     end

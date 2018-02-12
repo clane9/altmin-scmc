@@ -31,7 +31,7 @@ classdef SC_MC_Base_Solver
     self.X(self.Omegac) = 0; % zero-fill missing entries.
     end
 
-    function [groups, C, Y, history] = solve(self, params, exprC_params, ...
+    function [groups, C, Y, history] = solve(self, Y0, params, exprC_params, ...
         compY_params)
     % solve   solve alternating minimization for joint subspace clustering and
     %   completion. Minimizes a generic objective
@@ -39,9 +39,11 @@ classdef SC_MC_Base_Solver
     %   min_{Y,C} lambda/2 ||W_k \odot (Y - YC)||_F^2 + g(Y,C)
     %   s.t. diag(C) = 0
     %
-    %   [groups, C, Y, history] = solver.solve(params, exprC_params, compY_params)
+    %   [groups, C, Y, history] = solver.solve(Y0, params, exprC_params, compY_params)
     %
     %   Args:
+    %     Y0: Initial guess for completion Y. If empty, will initialize with ZF
+    %       data.
     %     params: struct containing parameters for optimization:
     %       maxIter: maximum iterations [default: 30].
     %       maxTime: maximum time allowed in seconds [default: Inf].
@@ -52,7 +54,6 @@ classdef SC_MC_Base_Solver
     %         tau_k,1 constrols self-expression, and tau_k,2 completion. E.g.
     %         tauScheme = [0 0] sets tau=1 for all iterations, while
     %         tauScheme=[inf inf] sets tau=0 [default: [inf inf]].
-    %       initMC: Initalize Y by low-rank matrix completion [default: true].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -107,11 +108,13 @@ classdef SC_MC_Base_Solver
     end
     prtformstr = [prtformstr ' \n'];
 
-    Y = self.X; Y(self.Omegac) = 0; relthr = infnorm(self.X(self.Omega));
-    if params.initMC
-      Y = alm_mc(Y, self.Omega);
+    if ~all(size(Y0) == [self.D self.N])
+      Y = self.X; Y(self.Omegac) = 0;
+    else
+      Y = Y0; Y(self.Omega) = self.X(self.Omega);
     end
     C = zeros(self.N);
+    relthr = infnorm(self.X(self.Omega));
     Y_last = Y; C_last = C; obj_last = self.objective(Y, C, taus(2));
     history.status = 1;
     for kk=1:params.maxIter
