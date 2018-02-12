@@ -1,9 +1,9 @@
 function eval_SCMC_methods_Img_020518(prefix,dataset,form,n,D,Ng,rho,seed,...
     lambda,gamma,tauScheme,maxIter,maxTime)
 
-if nargin < 10; tauScheme = [Inf 0]; end
-if nargin < 11; maxIter = 20; end
-if nargin < 11; maxTime = 60^2; end
+if nargin < 11; tauScheme = [Inf 0]; end
+if nargin < 12; maxIter = 20; end
+if nargin < 13; maxTime = 60^2; end
 
 rng(seed);
 
@@ -17,12 +17,19 @@ elseif strcmpi(dataset, 'MNIST_SC')
   load MNIST_SC.mat MNIST_SC_DATA MNIST_LABEL;
   X = MNIST_SC_DATA; groupsTrue = MNIST_LABEL;
   clear MNIST_SC_DATA MNIST_LABEL;
+elseif strcmpi(dataset, 'COIL20')
+  load COIL20.mat fea gnd;
+  X = fea'; groupsTrue = gnd;
 else
   error('dataset not supported!')
 end
 
 % Downsample and select subset of data-points.
-X = dimReduction_PCA(X, D);
+if D >= 0
+  X = dimReduction_PCA(X, D);
+else
+  D = size(X,1);
+end
 labels = unique(groupsTrue);
 sublabels = labels(randperm(length(labels), n));
 samp_mask = false(size(groupsTrue));
