@@ -101,7 +101,7 @@ classdef SC_MC_Base_Solver
 
     % Whether tau changes across iteration.
     taus = [0 0].^params.tauScheme;
-    adapt_tau = ~all(params.tauScheme==0) && ~all(params.tauScheme==inf);
+    adapt_tau = ~(params.tauScheme(2)==0 || params.tauScheme(2)==inf);
 
     prtformstr = ['(main alt) k=%d, obj=%.2e, ' ...
         'convobj=%.2e, convC=%.2e, convY=%.2e, rtime=%.2f,%.2f'];
