@@ -54,6 +54,8 @@ classdef SC_MC_Base_Solver
     %         tau_k,1 constrols self-expression, and tau_k,2 completion. E.g.
     %         tauScheme = [0 0] sets tau=1 for all iterations, while
     %         tauScheme=[inf inf] sets tau=0 [default: [inf inf]].
+    %       lambdaIncr: rate for adjusting lambda each iteration
+    %         [default: 1].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -75,9 +77,9 @@ classdef SC_MC_Base_Solver
     if nargin < 2; params = struct; end
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; compY_params = struct; end
-    fields = {'maxIter', 'maxTime', 'convThr', 'tauScheme', 'initMC', ...
+    fields = {'maxIter', 'maxTime', 'convThr', 'tauScheme', 'lambdaIncr', ...
         'trueData', 'prtLevel', 'logLevel'};
-    defaults = {30, Inf, 1e-6, [inf inf], true, {}, 1, 1};
+    defaults = {30, Inf, 1e-6, [inf inf], 1, {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -170,6 +172,7 @@ classdef SC_MC_Base_Solver
         break
       end
       C_last = C; Y_last = Y; obj_last = obj;
+      self.lambda = min(params.lambdaIncr*self.lambda, 1e4);
     end
     history.iter = kk;
     if ~evaltrue
