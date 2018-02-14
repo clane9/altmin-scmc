@@ -33,7 +33,7 @@ classdef LSRSC_MC < ENSC_MC
     %   Returns:
     %     self: LSRSC_MC solver instance.
     if nargin < 5; eta = 0; end
-    self = self@ENSC_MC(X, Omega, n, 0, lambda, eta);
+    self = self@ENSC_MC(X, Omega, n, lambda, 0, eta);
     end
 
 
@@ -91,7 +91,7 @@ classdef LSRSC_MC < ENSC_MC
       %   s.t. c_ii = 0
       wi = W(:,ii); negIi = negI(:,ii);
       wY = ldiagmult(wi, Y); wyi = wY(:,ii); wY = trimmat(wY, ii);
-      C(:, negIi) = (self.lambda*(wY'*wY) + eye(self.N-1)) \ ...
+      C(negIi, ii) = (self.lambda*(wY'*wY) + eye(self.N-1)) \ ...
           (self.lambda*(wY'*wyi));
     end
     history.iter = 0; history.status = 0; history.rtime = toc(tstart);

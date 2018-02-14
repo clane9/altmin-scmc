@@ -1,4 +1,4 @@
-classdef ENSC_CASS_MC < ENSC_MC & CASS_MC2
+classdef ENSC_CASS_MC < ENSC_MC & CASS_MC
 % ENSC_CASS_MC   Solver for combined ENSC & CASS regularized alternating
 % minimization for joint subspace clustering and completion. Alternates between
 %
@@ -41,7 +41,7 @@ classdef ENSC_CASS_MC < ENSC_MC & CASS_MC2
     %   Returns:
     %     self: ENSC_CASS_MC solver instance.
     self = self@ENSC_MC(X, Omega, n, lambda, gamma, 0);
-    self = self@CASS_MC2(X, Omega, n, lambda);
+    self = self@CASS_MC(X, Omega, n, lambda);
     end
 
     
@@ -131,8 +131,8 @@ classdef ENSC_CASS_MC < ENSC_MC & CASS_MC2
     %   Returns:
     %     Y: D x N completed data.
     %     history: Struct containing minimal diagnostic info.
-    [Y, history] = compY@CASS_MC2(self, Y, C, tau, params);
-    % [Y, history] = compY@CASS_MC2(self, Y, abs(C)'*abs(C), tau, params);
+    [Y, history] = compY@CASS_MC(self, Y, C, tau, params);
+    % [Y, history] = compY@CASS_MC(self, Y, abs(C)'*abs(C), tau, params);
     end
     
     
