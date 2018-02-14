@@ -36,7 +36,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
     %
     %   Returns:
     %     self: ENSC_MC solver instance.
-    if nargin < 6; eta = lambda; end
+    if nargin < 6; eta = 0; end
     self = self@SC_MC_Base_Solver(X, Omega, n, lambda);
     self.gamma = gamma;
     self.eta = eta;

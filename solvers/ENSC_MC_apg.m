@@ -41,7 +41,7 @@ classdef ENSC_MC_apg < ENSC_MC
     %
     %   Returns:
     %     self: ENSC_MC solver instance.
-    if nargin < 6; eta = lambda; end
+    if nargin < 6; eta = 0; end
     self = self@ENSC_MC(X, Omega, n, lambda, gamma, eta);
     end
 
