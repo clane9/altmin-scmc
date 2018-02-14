@@ -4,13 +4,9 @@ classdef ENSC_Group_MC < ENSC_MC
 %
 %   solver = ENSC_Group_MC(X, Omega, n, lambda, gamma)
 
-  properties
-  
-  end
-
 
   methods
-    
+
     function self = ENSC_Group_MC(X, Omega, n, lambda, gamma)
     % ENSC_Group_MC   Solver for alternating elastic-net subspace clustering (with
     %   projection), and group-wise completion.
@@ -28,8 +24,8 @@ classdef ENSC_Group_MC < ENSC_MC
     %     self: ENSC_Group_MC solver instance.
     self = self@ENSC_MC(X, Omega, n, lambda, gamma, 0);
     end
-    
-    function [Y, history] = compY(self, ~, C, ~, ~)
+
+    function [Y, history] = compY(self, ~, C, ~, params)
     % compY   Cluster the data using C then complete missing data separately
     %   for each group.
     %
@@ -41,20 +37,44 @@ classdef ENSC_Group_MC < ENSC_MC
     %     C: N x N self-expressive coefficient C.
     %     tau: Non-negative scalar representing reconstruction penalty weight on
     %       unobserved entries (not used, included for consistency).
+    %     params: Struct containing problem parameters.
+    %       maxIter: [default: 200].
+    %       convThr: [default: 1e-3].
+    %       prtLevel: 1=basic per-iteration output [default: 0].
+    %       logLevel: 0=basic summary info, 1=detailed per-iteration info
+    %         [default: 0]
     %
     %   Returns:
     %     Y: D x N completed data.
     %     history: Struct containing minimal diagnostic info.
-    tstart = tic;
+
+    % This needed to make sure mu not passed accidentally, overriding default in alm_mc.
+    newparams = struct;
+    fields = {'maxIter', 'convThr', 'prtLevel', 'logLevel'};
+    defaults = {200, 1e-3, 1, 1};
+    for i=1:length(fields)
+      if ~isfield(params, fields{i})
+        newparams.(fields{i}) = defaults{i};
+      else
+        newparams.(fields{i}) = params.(fields{i});
+      end
+    end
+    params = newparams;
+
     groups = self.cluster(C);
     Y = self.X;
+    [history.rtime, history.status, history.iter] = deal(0);
     for ii=1:self.n
       indices = find(groups == ii);
-      % TODO: Should modify alm_mc so that it returns some diagnostic
-      % info, is more consistent with other methods.
-      Y(:, indices) = alm_mc(self.X(:, indices), self.Omega(:, indices));
+      [Y(:, indices), subprob_hist] = alm_mc(self.X(:, indices), ...
+          self.Omega(:, indices), params);
+      history.rtime = history.rtime + subprob_hist.rtime;
+      history.status = max(history.status, subprob_hist.status);
+      history.iter = history.iter + subprob_hist.iter;
+      if params.logLevel > 0
+        history.feas{ii} = subprob_hist.feas;
+      end
     end
-    history.status = 0; history.iter = 0; history.rtime = toc(tstart);
     end
 
   end
