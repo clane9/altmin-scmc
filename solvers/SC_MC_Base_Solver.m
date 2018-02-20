@@ -96,7 +96,6 @@ classdef SC_MC_Base_Solver
     if ~isempty(params.trueData)
       evaltrue = true;
       [Xtrue, groupsTrue] = params.trueData{:};
-      Xunobs = Xtrue(self.Omegac); normXunobs = norm(Xunobs);
     end
 
     % Whether tau changes across iteration.
@@ -134,7 +133,7 @@ classdef SC_MC_Base_Solver
       convobj = (obj_last - obj)/obj;
       true_scores = [];
       if evaltrue
-        comp_err = norm(Y(self.Omegac) - Xunobs)/normXunobs;
+        comp_err = self.eval_comp_err(Y, C, Xtrue);
         [groups, ~, cluster_err] = self.cluster(C, groupsTrue);
         true_scores = [comp_err cluster_err];
       end
@@ -193,6 +192,15 @@ classdef SC_MC_Base_Solver
     else
       cluster_err = nan;
     end
+    end
+
+    function comp_err = eval_comp_err(self, Y, C, Xtrue)
+    % eval_comp_err   Evaluate completion error of Y (possibly using C).
+    %
+    %   comp_err = solver.eval_comp_err(Y, C, Xtrue)
+    Xunobs = Xtrue(self.Omegac);
+    % NOTE: Should Y or Y*C be used as the completion estimate?
+    comp_err = norm(Y(self.Omegac)-Xunobs)/norm(Xunobs);
     end
 
   end
