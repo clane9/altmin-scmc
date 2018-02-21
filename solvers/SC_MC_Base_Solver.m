@@ -56,7 +56,7 @@ classdef SC_MC_Base_Solver
     %         tauScheme=[inf inf] sets tau=0 [default: [inf inf]].
     %       lambdaIncr: rate for adjusting lambda during optimization
     %         [default: 1].
-    %       lambdaIncrSteps: How often to increase lambda [default: 50].
+    %       lambdaIncrSteps: How often to increase lambda [default: 1].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -80,7 +80,7 @@ classdef SC_MC_Base_Solver
     if nargin < 4; compY_params = struct; end
     fields = {'maxIter', 'maxTime', 'convThr', 'tauScheme', 'lambdaIncr', ...
         'lambdaIncrSteps', 'trueData', 'prtLevel', 'logLevel'};
-    defaults = {30, Inf, 1e-6, [inf inf], 1, 50, {}, 1, 1};
+    defaults = {30, Inf, 1e-6, [inf inf], 1, 1, {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -101,7 +101,7 @@ classdef SC_MC_Base_Solver
 
     % Whether tau changes across iteration.
     taus = [0 0].^params.tauScheme;
-    adapt_tau = ~(params.tauScheme(2)==0 || params.tauScheme(2)==inf);
+    % adapt_tau = ~(params.tauScheme(2)==0 || params.tauScheme(2)==inf);
 
     prtformstr = ['(main alt) k=%d, obj=%.2e, ' ...
         'convobj=%.2e, convC=%.2e, convY=%.2e, rtime=%.2f,%.2f'];
@@ -159,7 +159,7 @@ classdef SC_MC_Base_Solver
       end
 
       % Check stopping cond: objective fails to decrease, or iterates don't change.
-      if (max(convC, convY) < params.convThr); % || (~adapt_tau && convobj < params.convThr);
+      if (max(convC, convY) < params.convThr) % || (~adapt_tau && convobj < params.convThr)
         history.status = 0;
         break
       end

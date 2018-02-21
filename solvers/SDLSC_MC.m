@@ -14,6 +14,7 @@ classdef SDLSC_MC < SC_MC_Base_Solver
   methods
 
     function self = SDLSC_MC(X, Omega, n, lambda, eta1, eta2)
+    if nargin < 6; eta2 = 1; end
     self = self@SC_MC_Base_Solver(X, Omega, n, lambda);
     self.eta1 = eta1;
     self.eta2 = eta2;
@@ -46,7 +47,7 @@ classdef SDLSC_MC < SC_MC_Base_Solver
     %       convThr: convergence threshold [default: 1e-6].
     %       lambdaIncr: rate for adjusting lambda during optimization
     %         [default: 1].
-    %       lambdaIncrSteps: How often to increase lambda [default: 50].
+    %       lambdaIncrSteps: How often to increase lambda [default: 1].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -71,7 +72,7 @@ classdef SDLSC_MC < SC_MC_Base_Solver
     if nargin < 4; solveU_params = struct; end
     fields = {'K', 'maxIter', 'maxTime', 'convThr', 'lambdaIncr', ...
         'lambdaIncrSteps', 'trueData', 'prtLevel', 'logLevel'};
-    defaults = {ceil(0.2*self.N), 30, Inf, 1e-6, 1, 50, {}, 1, 1};
+    defaults = {ceil(0.2*self.N), 30, Inf, 1e-6, 1, 1, {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -125,7 +126,7 @@ classdef SDLSC_MC < SC_MC_Base_Solver
       if evaltrue
         comp_err = self.eval_comp_err(U, C, Xtrue);
         [groups, ~, cluster_err] = self.cluster(C, groupsTrue);
-        recon_err = sum(sum((Xtrue - Xtrue*C).^2));
+        recon_err = sum(sum((Xtrue - U*C).^2));
         true_scores = [comp_err cluster_err recon_err];
       end
 
