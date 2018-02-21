@@ -40,6 +40,9 @@ elseif strcmpi(formulation, 'LRSC_MC')
 elseif strcmpi(formulation, 'LSRSC_MC')
   solver = LSRSC_MC(X.*Omega, Omega, n, form_params.lambda, ...
       form_params.eta);
+elseif strcmpi(formulation, 'SDLSC_MC')
+  solver = SDLSC_MC(X.*Omega, Omega, n, form_params.lambda, ...
+      form_params.eta1, form_params.eta2);
 else
   error('formulation not implemented.')
 end
