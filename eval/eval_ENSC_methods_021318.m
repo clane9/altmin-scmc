@@ -15,7 +15,7 @@ else
   error('formulation not implemented.')
 end
 
-opt_params.maxIter = 500; opt_params.convThr = 1e-6;
+opt_params.maxIter = 200; opt_params.convThr = -inf; % opt_params.convThr = 1e-6;
 opt_params.lambdaIncr = lambdaIncr;
 opt_params.tauScheme = tauScheme;
 opt_params.trueData = {X, groupsTrue};
