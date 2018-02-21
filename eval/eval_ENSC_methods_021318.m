@@ -15,14 +15,14 @@ else
   error('formulation not implemented.')
 end
 
-opt_params.maxIter = 200; opt_params.convThr = -inf; % opt_params.convThr = 1e-6;
+opt_params.maxIter = 500; opt_params.convThr = -inf; % opt_params.convThr = 1e-6;
 opt_params.lambdaIncr = lambdaIncr;
 opt_params.tauScheme = tauScheme;
 opt_params.trueData = {X, groupsTrue};
 opt_params.prtLevel = 1; opt_params.logLevel = 2;
 exprC_params = struct;
 compY_params.maxIter = 2000; compY_params.convThr = 1e-8;
-opt_params.maxTime = ceil(60*8 - 60); % ~~8 min.
+opt_params.maxTime = ceil(60*15 - 60); % ~~15 min.
 
 if strcmpi(initMode, 'true')
   Y0 = X;
