@@ -165,7 +165,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
     end
 
 
-    function [Y, history] = compY(self, ~, C, tau, ~)
+    function [Y, history] = compY(self, ~, C, tau, params)
     % compY   Complete missing data using self-expression C. Solves objective:
     %
     %   min_Y lambda/2 ||W \odot (Y - YC)||_F^2 + eta/2 ||P_\Omega^C(Y)||_F^2
@@ -182,7 +182,7 @@ classdef ENSC_MC < SC_MC_Base_Solver
     %     C: N x N self-expressive coefficient C.
     %     tau: Non-negative scalar representing reconstruction penalty weight on
     %       unobserved entries.
-    %     params: (not used, included for consistency.)
+    %     params: Only logLevel used.
     %
     %   Returns:
     %     Y: D x N completed data.
@@ -204,9 +204,13 @@ classdef ENSC_MC < SC_MC_Base_Solver
         A = A(wi~=0, :);
         Y(ii,omegaic) = pinv(A(:,omegaic))*(-A(:,omegai)*xi(omegai));
       else
-        Y(ii,omegaic) = (self.lambda*A(:,omegaic)'*A(:,omegaic) + ...
+        Y(ii,omegaic) = (self.lambda*(A(:,omegaic)'*A(:,omegaic)) + ...
             self.eta*eye(Nunobs(ii))) \ ...
             (self.lambda*A(:,omegaic)'*(-A(:,omegai)*xi(omegai)));
+      end
+      if params.logLevel > 0
+        history.eigmin(ii) = svds(A(:,omegai), 1, 'smallest')^2;
+        history.eigmax(ii) = svds(A(:,omegai), 1)^2;
       end
     end
     history.iter = 0; history.status = 0; history.rtime = toc(tstart);
