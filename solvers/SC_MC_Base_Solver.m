@@ -54,8 +54,9 @@ classdef SC_MC_Base_Solver
     %         tau_k,1 constrols self-expression, and tau_k,2 completion. E.g.
     %         tauScheme = [0 0] sets tau=1 for all iterations, while
     %         tauScheme=[inf inf] sets tau=0 [default: [inf inf]].
-    %       lambdaIncr: rate for adjusting lambda each iteration
+    %       lambdaIncr: rate for adjusting lambda during optimization
     %         [default: 1].
+    %       lambdaIncrSteps: How often to increase lambda [default: 50].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -78,8 +79,8 @@ classdef SC_MC_Base_Solver
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; compY_params = struct; end
     fields = {'maxIter', 'maxTime', 'convThr', 'tauScheme', 'lambdaIncr', ...
-        'trueData', 'prtLevel', 'logLevel'};
-    defaults = {30, Inf, 1e-6, [inf inf], 1, {}, 1, 1};
+        'lambdaIncrSteps', 'trueData', 'prtLevel', 'logLevel'};
+    defaults = {30, Inf, 1e-6, [inf inf], 1, 50, {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -105,7 +106,7 @@ classdef SC_MC_Base_Solver
     prtformstr = ['(main alt) k=%d, obj=%.2e, ' ...
         'convobj=%.2e, convC=%.2e, convY=%.2e, rtime=%.2f,%.2f'];
     if evaltrue
-      prtformstr = [prtformstr ', cmperr=%.3f, clstrerr=%.3f'];
+      prtformstr = [prtformstr ', cmperr=%.3f, clstrerr=%.3f, reconerr=%.3f'];
     end
     prtformstr = [prtformstr ' \n'];
 
@@ -135,7 +136,8 @@ classdef SC_MC_Base_Solver
       if evaltrue
         comp_err = self.eval_comp_err(Y, C, Xtrue);
         [groups, ~, cluster_err] = self.cluster(C, groupsTrue);
-        true_scores = [comp_err cluster_err];
+        recon_err = sum(sum((Xtrue - Xtrue*C).^2));
+        true_scores = [comp_err cluster_err recon_err];
       end
 
       % Printing, logging.
@@ -157,7 +159,7 @@ classdef SC_MC_Base_Solver
       end
 
       % Check stopping cond: objective fails to decrease, or iterates don't change.
-      if (~adapt_tau && convobj < params.convThr) || (max(convC, convY) < params.convThr);
+      if (max(convC, convY) < params.convThr); % || (~adapt_tau && convobj < params.convThr);
         history.status = 0;
         break
       end
@@ -171,11 +173,13 @@ classdef SC_MC_Base_Solver
         break
       end
       C_last = C; Y_last = Y; obj_last = obj;
-      self.lambda = min(params.lambdaIncr*self.lambda, 1e4);
+      if mod(kk,params.lambdaIncrSteps) == 0
+        self.lambda = min(params.lambdaIncr*self.lambda, 1e4);
+      end
     end
     history.iter = kk;
     if ~evaltrue
-      groups = self.cluster(C);
+      groups = self.cluster(C, groupsTrue);
     end
     history.rtime = toc(tstart);
     end
@@ -194,7 +198,7 @@ classdef SC_MC_Base_Solver
     end
     end
 
-    function comp_err = eval_comp_err(self, Y, C, Xtrue)
+    function comp_err = eval_comp_err(self, Y, ~, Xtrue)
     % eval_comp_err   Evaluate completion error of Y (possibly using C).
     %
     %   comp_err = solver.eval_comp_err(Y, C, Xtrue)
