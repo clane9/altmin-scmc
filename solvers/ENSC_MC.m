@@ -202,13 +202,15 @@ classdef ENSC_MC < SC_MC_Base_Solver
       %   + eta/2 ||y_{\omega_i^c}||_2^2
       if self.eta == 0
         A = A(wi~=0, :);
-        Y(ii,omegaic) = pinv(A(:,omegaic))*(-A(:,omegai)*xi(omegai));
+        % NOTE: pinv prohibitive for large N.
+        % Y(ii,omegaic) = pinv(A(:,omegaic))*(-A(:,omegai)*xi(omegai));
+        Y(ii,omegaic) = A(:,omegaic) \ (-A(:,omegai)*xi(omegai));
       else
         Y(ii,omegaic) = (self.lambda*(A(:,omegaic)'*A(:,omegaic)) + ...
             self.eta*eye(Nunobs(ii))) \ ...
             (self.lambda*A(:,omegaic)'*(-A(:,omegai)*xi(omegai)));
       end
-      if params.logLevel > 0
+      if params.logLevel > 1
         history.eigmin(ii) = svds(A(:,omegai), 1, 'smallest')^2;
         history.eigmax(ii) = svds(A(:,omegai), 1)^2;
       end

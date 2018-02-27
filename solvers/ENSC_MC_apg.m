@@ -83,8 +83,8 @@ classdef ENSC_MC_apg < ENSC_MC
 
     W = ones(self.D, self.N); W(self.Omegac) = tau;
     function [f, G] = exprC_ffun(C)
-    Res = Y*C - Y;
-    f = self.lambda*0.5*sum(sum((W.*Res).^2));
+    Res = W.*(Y*C - Y);
+    f = self.lambda*0.5*sum(sum(Res.^2));
     if nargout > 1
       G = self.lambda*(Y'*(W.*Res));
     end

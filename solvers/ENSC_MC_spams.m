@@ -48,7 +48,7 @@ classdef ENSC_MC_spams < ENSC_MC
 
     function [C, history] = exprC(self, Y, ~, tau, ~)
     % exprC   Compute self-expression with elastic-net regularization using
-    %   accelerated proximal gradient.  Solves the formulation
+    %   SPAMS mexLasso.  Solves the formulation
     %
     %   min_C \lambda/2 ||W \odot (Y - YC)||_F^2 + ...
     %     \gamma ||C||_1 + (1-gamma)/2 ||C||_F^2
