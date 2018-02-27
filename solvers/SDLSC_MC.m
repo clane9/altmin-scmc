@@ -79,6 +79,10 @@ classdef SDLSC_MC < SC_MC_Base_Solver
     %       lambdaIncr: rate for adjusting lambda during optimization
     %         [default: 1].
     %       lambdaIncrSteps: How often to increase lambda [default: 1].
+    %       doPrune: Whether to prune least used & redundant dictionary atoms
+    %         [default: false].
+    %       Y0: Inital estimat of complete data, used to choose replacement
+    %         dictionary atoms. If not provided and doPrune set, will use ZF data.
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -102,12 +106,15 @@ classdef SDLSC_MC < SC_MC_Base_Solver
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; solveU_params = struct; end
     fields = {'maxIter', 'maxTime', 'convThr', 'lambdaIncr', ...
-        'lambdaIncrSteps', 'trueData', 'prtLevel', 'logLevel'};
-    defaults = {30, Inf, 1e-6, 1, 1, {}, 1, 1};
+        'lambdaIncrSteps', 'doPrune', 'Y0', 'trueData', 'prtLevel', 'logLevel'};
+    defaults = {30, Inf, 1e-6, 1, 1, false, [], {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
       end
+    end
+    if isempty(params.Y0)
+      params.Y0 = self.X;
     end
     exprC_params.prtLevel = params.prtLevel-1;
     exprC_params.logLevel = params.logLevel-1;
@@ -131,7 +138,7 @@ classdef SDLSC_MC < SC_MC_Base_Solver
 
     if isempty(U0)
       subinds = randperm(self.N, self.K);
-      U = self.X(:,subinds);
+      U = params.Y0(:,subinds);
     else
       U = U0; self.K = size(U0,2);
     end
@@ -140,9 +147,10 @@ classdef SDLSC_MC < SC_MC_Base_Solver
     U_last = U; C_last = C; obj_last = self.objective(U, C);
     history.status = 1;
     for kk=1:params.maxIter
-      if kk > 1
+      if kk > 1 && params.doPrune
         % Prune dictionary as in K-SVD, to try to avoid local-minima.
-        % U = self.pruneU(U,C);
+        % Replace least used/redundant atoms with poorly represented elements of Y0.
+        U = self.pruneU(U, C, params.Y0);
       end
       % Alternate updating C, U.
       [C, exprC_history] = self.exprC(U, C, exprC_params);
@@ -274,7 +282,7 @@ classdef SDLSC_MC < SC_MC_Base_Solver
     end
 
 
-    function U = pruneU(self, U, C, toosmall_thr, toosim_thr)
+    function U = pruneU(self, U, C, Y, toosmall_thr, toosim_thr)
     % pruneU    prune dictionary following k-SVD.
     %
     %   U = solver.pruneU(U, C, toosmall_thr, toosim_thr)
@@ -282,14 +290,15 @@ classdef SDLSC_MC < SC_MC_Base_Solver
     %   Args:
     %     U: D x K dictionary.
     %     C: K x N sparse representation.
+    %     Y: D x N completion estimate used to draw replacement atoms.
     %     toosmall_thr: threshold for atom norms to be too small [default: 1e-4].
     %     toosim_thr: threshold for atoms to be too similar (cos angle)
     %       [default: 0.9].
     %
     %   Returns:
     %     U: pruned dictionary.
-    if nargin < 4; toosmall_thr = 1e-4; end
-    if nargin < 5; toosim_thr = 0.9; end
+    if nargin < 5; toosmall_thr = 1e-4; end
+    if nargin < 6; toosim_thr = 0.9; end
     % Get indices of dictionary elements not used enough.
     Unorms = sum(U.^2); Cnorms = sum(C.^2,2)';
     combnorms = 0.5*(Unorms + Cnorms);
@@ -312,7 +321,7 @@ classdef SDLSC_MC < SC_MC_Base_Solver
       Res = sum((self.Omega.*(self.X - U*C)).^2);
       [~, leastrepinds] = sort(Res, 'descend');
       leastrepinds = leastrepinds(1:nreplace);
-      U(:,prunemask) = self.X(:,leastrepinds);
+      U(:,prunemask) = Y(:,leastrepinds);
     end
     end
 
