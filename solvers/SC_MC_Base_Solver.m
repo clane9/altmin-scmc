@@ -179,7 +179,7 @@ classdef SC_MC_Base_Solver
     end
     history.iter = kk;
     if ~evaltrue
-      groups = self.cluster(C, groupsTrue);
+      groups = self.cluster(C);
     end
     history.rtime = toc(tstart);
     end
@@ -190,7 +190,7 @@ classdef SC_MC_Base_Solver
     %
     %   [groups, A, cluster_err] = solver.cluster(C, groupsTrue)
     A = build_affinity(C); % Build sparse, un-normalized affinity
-    groups = SpectralClustering(A, self.n);
+    groups = spectral_clustering(A, self.n);
     if nargin > 2
       [cluster_err, groups] = eval_cluster_error(groups, groupsTrue);
     else

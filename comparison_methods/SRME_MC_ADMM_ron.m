@@ -79,7 +79,7 @@ end
 
 % Spectral clustering.
 Csym = build_affinity(Z - diag(diag(Z))); % CL edit here.
-groups = SpectralClustering(Csym, n);
+groups = spectral_clustering(Csym, n);
       
 end
 

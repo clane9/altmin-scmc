@@ -54,7 +54,7 @@ else
   A = build_affinity(C);
   % Apply spectral clustering.
   n = length(unique(true_groups)); 
-  groups = SpectralClustering(A, n);
+  groups = spectral_clustering(A, n);
 
   [err, groups] = eval_cluster_error(groups, true_groups);
 end

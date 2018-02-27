@@ -12,7 +12,7 @@
 % Modified @ Connor Lane, 2018
 %--------------------------------------------------------------------------
 
-function groups = SpectralClustering(A, n)
+function groups = spectral_clustering(A, n)
 
 if ~issymmetric(A)
   error('Affinity is not symmetric.')

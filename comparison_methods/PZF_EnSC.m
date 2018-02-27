@@ -90,6 +90,6 @@ end
 
 % Spectral clustering.
 Csym = build_affinity(C - diag(diag(C)));
-groups = SpectralClustering(Csym, n);
+groups = spectral_clustering(Csym, n);
 Y = group_completion(X, Omega, groups, n);
 end

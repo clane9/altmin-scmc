@@ -107,7 +107,8 @@ end
 % Spectral clustering.
 % Csym = BuildAdjacency(Z - diag(diag(Z)));
 Csym = build_affinity(Z - diag(diag(Z))); % edit by CL.
-groups = SpectralClustering(Csym, n);
+% groups = SpectralClustering(Csym, n);
+groups = spectral_clustering(Csym, n);
       
 end
 
