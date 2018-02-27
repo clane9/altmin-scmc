@@ -3,44 +3,49 @@ classdef GSSC_MC < SDLSC_MC
 %   with group-sparsity regularization. Solves formulation
 %
 %   min_{D,C} lambda/2 ||P_Omega(X - UC)||_F^2 ...
-%       + ||U||_{2,1} + eta_1 \sum_{i,j}^{n,N} ||c_{i,j}||_2
+%       + eta_1 ||U||_{2,1} + \sum_{i,j}^{n,N} ||c_{i,j}||_2
+%   s.t. ||U_i||_2 <= 1 for all i.
 %
 %   where U = [U_1 ... U_n], U_i in \RR^{D x d}, c_{i,j} in \RR^d ith block of
 %   jth column.
 %
-%   solver = GSSC_MC(X, Omega, n, lambda, eta1, d)
+%   solver = GSSC_MC(X, Omega, n, lambda, Uconstrain, eta1, d)
 
   properties
-    d;
+    d; Uconstrain;
   end
 
   methods
 
-    function self = GSSC_MC(X, Omega, n, lambda, eta1, d)
+    function self = GSSC_MC(X, Omega, n, lambda, Uconstrain, eta1, d)
     % GSSC_MC    Solver for SDL based combined subspace clustering and completion,
     %   with group-sparsity regularization. Solves formulation
     %
     %   min_{D,C} lambda/2 ||P_Omega(X - UC)||_F^2 ...
-    %       + ||U||_{2,1} + eta_1 \sum_{i,j}^{n,N} ||c_{i,j}||_2
+    %       + eta_1 ||U||_{2,1} + \sum_{i,j}^{n,N} ||c_{i,j}||_2
+    %   s.t. ||U_i||_2 <= 1 for all i.
     %
     %   where U = [U_1 ... U_n], U_i in \RR^{D x d}, c_{i,j} in \RR^d ith block of
     %   jth column.
     %
-    %   solver = GSSC_MC(X, Omega, n, lambda, eta1, d)
+    %   solver = GSSC_MC(X, Omega, n, lambda, Uconstrain, eta1, d)
     %
     %   Args:
     %     X: D x N incomplete data matrix.
     %     Omega: D x N binary pattern of missing entries.
     %     n: number of clusters.
     %     lambda: self-expression penalty parameter.
-    %     eta1: group sparsity penalty parameter.
-    %     d: size of each group dictionary block.
+    %     Uconstrain: whether to impose bound constraint on U [default: true].
+    %     eta1: group sparsity penalty parameter for U [default: 1].
+    %     d: size of each group dictionary block [default: 0.2*N/n].
     %
     %   Returns:
     %     self: GSSC_MC solver instance.
-    if nargin < 5; eta1 = 1; end
-    if nargin < 6; d = ceil(0.2*size(X,2)/n); end
+    if nargin < 5; Uconstrain = true; end
+    if nargin < 6; eta1 = 1; end
+    if nargin < 7; d = ceil(0.2*size(X,2)/n); end
     self = self@SDLSC_MC(X, Omega, n, lambda, eta1, 0, d*n);
+    self.Uconstrain = Uconstrain;
     self.d = d;
     end
 
@@ -60,10 +65,14 @@ classdef GSSC_MC < SDLSC_MC
     %     R: regularizer.
     Res = self.X - U*C;
     L = 0.5*sum(Res(self.Omega).^2);
-    R = sum(sqrt(sum(U.^2))); % ||U||_{2,1}
+    Unorms = sqrt(sum(U.^2));
+    R = self.eta1*sum(Unorms); % ||U||_{2,1}
+    if self.Uconstrain && max(Unorms) > 1
+      R = R + inf; % ||U_i||_2 <= 1 constraint
+    end
     % Reshape C as [C_1 ... C_n] where C_i is d x N to compute group sparsity norm.
     Cblocks = reshape(C, self.d, []);
-    R = R + self.eta1*sum(sqrt(sum(Cblocks.^2))); % \sum_{i,j} ||c_{i, j}||_2
+    R = R + sum(sqrt(sum(Cblocks.^2))); % \sum_{i,j} ||c_{i, j}||_2
     obj = self.lambda*L + R;
     end
 
@@ -73,7 +82,7 @@ classdef GSSC_MC < SDLSC_MC
     %   gradient.  Solves the formulation
     %
     %   min_C \lambda/2 ||W \odot (X - UC)||_F^2 + ...
-    %     \eta_1 \sum_{i,j} ||c_{i,j}||_2
+    %     \sum_{i,j} ||c_{i,j}||_2
     %
     %   [C, history] = solver.exprC(U, C0, params)
     %
@@ -111,9 +120,9 @@ classdef GSSC_MC < SDLSC_MC
 
     function [r, Z] = exprC_rfun(C, rho)
     Cblocks = reshape(C, self.d, []);
-    r = self.eta1*sum(sqrt(sum(Cblocks.^2)));
+    r = sum(sqrt(sum(Cblocks.^2)));
     if nargout > 1
-      Zblocks = prox_L21(Cblocks, self.eta1*rho);
+      Zblocks = prox_L21(Cblocks, rho);
       Z = reshape(Zblocks, size(C));
     end
     end
@@ -126,7 +135,8 @@ classdef GSSC_MC < SDLSC_MC
     % solveU   Update dictionary by accelerated proximal gradient. Solves the
     %   formulation
     %
-    %   min_U \lambda/2 ||W \odot (X - UC)||_F^2 + ||U||_{2,1}
+    %   min_U \lambda/2 ||W \odot (X - UC)||_F^2 + eta_1 ||U||_{2,1}
+    %   s.t.  ||U_i||_2 <= 1 for all i
     %
     %   [U, history] = solver.solveU(U0, C, params)
     %
@@ -163,9 +173,25 @@ classdef GSSC_MC < SDLSC_MC
     end
 
     function [r, Z] = solveU_rfun(U, rho)
-    r = sum(sqrt(sum(U.^2)));
+    r = 0;
+    Unorms = sqrt(sum(U.^2));
+    if self.Uconstrain && max(Unorms) > 1
+      r = r + inf; % ||U_i||_2 <= 1 constraint
+    end
+    if self.eta1 > 0
+      r = r + self.eta1*sum(sqrt(sum(U.^2)));
+    end
     if nargout > 1
-      Z = prox_L21(U, rho);
+      Z = U;
+      if self.eta1 > 0
+        Z = prox_L21(Z, self.eta1*rho);
+      end
+      Znorms = sqrt(sum(Z.^2));
+      % Need to add a little to column norms to avoid numerical constraint failure.
+      coeffs = min(1./(Znorms+10*eps), 1);
+      if self.Uconstrain
+        Z = Z.*repmat(coeffs, [self.D 1]);
+      end
     end
     end
 
