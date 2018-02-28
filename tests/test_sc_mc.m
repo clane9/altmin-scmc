@@ -43,9 +43,15 @@ elseif strcmpi(formulation, 'LSRSC_MC')
 elseif strcmpi(formulation, 'SDLSC_MC')
   solver = SDLSC_MC(X.*Omega, Omega, n, form_params.lambda, ...
       form_params.eta1, form_params.eta2, form_params.K);
+elseif strcmpi(formulation, 'SDLSC_MC2')
+  solver = SDLSC_MC2(X.*Omega, Omega, n, form_params.lambda, ...
+      form_params.eta1, form_params.K);
 elseif strcmpi(formulation, 'GSSC_MC')
   solver = GSSC_MC(X.*Omega, Omega, n, form_params.lambda, ...
       form_params.Uconstrain, form_params.eta1, form_params.d);
+elseif strcmpi(formulation, 'GSSC_MC2')
+  solver = GSSC_MC2(X.*Omega, Omega, n, form_params.lambda, ...
+      form_params.eta1, form_params.d);
 elseif strcmpi(formulation, 'GSSC_MC_l0')
   solver = GSSC_MC_l0(X.*Omega, Omega, n, form_params.lambda, ...
       form_params.Uconstrain, form_params.eta1, form_params.d);
@@ -79,7 +85,7 @@ elseif strcmpi(initmode, 'true')
 end
 
 % Choose random subset of columns if using SDL method
-if any(strcmpi(formulation, {'SDLSC_MC', 'GSSC_MC', 'GSSC_MC_l0'}))
+if any(strcmpi(formulation, {'SDLSC_MC', 'SDLSC_MC2', 'GSSC_MC', 'GSSC_MC_l0', 'GSSC_MC2'}))
   if any(strcmpi(initmode, {'pzf_ssc', 'alt_pzf_ssc'}))
     U0 = zeros(D, solver.K); d = solver.K/n;
     for ii=1:n
