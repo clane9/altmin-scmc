@@ -14,7 +14,7 @@ opt_params.maxIter = 300; opt_params.convThr = 1e-6; % opt_params.convThr = -inf
 opt_params.lambdaIncr = lambdaIncr;
 opt_params.trueData = {X, groupsTrue};
 opt_params.prtLevel = 1; opt_params.logLevel = 2;
-opt_params.maxTime = ceil(60*20 - 60); % ~~20 min.
+opt_params.maxTime = ceil(60*30 - 60); % ~~30 min.
 
 if strcmpi(initMode, 'pzf_ssc')
   tmp_solver = ENSC_Group_MC_spams(X.*Omega, Omega, n, lambda, 1);
