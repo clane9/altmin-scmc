@@ -143,6 +143,8 @@ classdef SC_MC_Base_Solver
     for kk=1:params.maxIter
       % Possibly update unobserved entry weights.
       taus = ((kk-1)/tau_denom).^params.tauScheme;
+      % Deal with annoying case 1^Inf = NaN.
+      taus(isnan(taus)) = 0;
       % Alternate updating C, Y.
       % Note previous iterates used to warm-start.
       [C, exprC_history] = self.exprC(Y, C, taus(1), exprC_params);
