@@ -57,6 +57,10 @@ classdef SC_MC_Base_Solver
     %       lambdaIncr: rate for adjusting lambda during optimization
     %         [default: 1].
     %       lambdaIncrSteps: How often to increase lambda [default: 1].
+    %       lambdaMax: Maximum lambda can increase to [default: 1e4].
+    %       valData: Data to use for validation, a cell {val_inds, Xval}
+    %         corresponding to a set of held-out indices and observed values.
+    %         val_inds should be a subset of the indices in Omega^c [default: {}].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -79,8 +83,9 @@ classdef SC_MC_Base_Solver
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; compY_params = struct; end
     fields = {'maxIter', 'maxTime', 'convThr', 'tauScheme', 'lambdaIncr', ...
-        'lambdaIncrSteps', 'trueData', 'prtLevel', 'logLevel'};
-    defaults = {30, Inf, 1e-6, [inf inf], 1, 1, {}, 1, 1};
+        'lambdaIncrSteps', 'lambdaMax', 'valData', 'trueData', ...
+        'prtLevel', 'logLevel'};
+    defaults = {30, Inf, 1e-6, [inf inf], 1, 1, 1e4, {}, {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -92,19 +97,35 @@ classdef SC_MC_Base_Solver
     compY_params.logLevel = params.logLevel-1;
     tstart = tic; % start timer.
 
-    % Initialize constants.
+    % Held out observed entries for validation.
+    doval = false;
+    if ~isempty(params.valData)
+      doval = true;
+      [val_inds, Xval] = params.valData{:};
+      normXval = norm(Xval); % Xval a vector of held out observed entries.
+      if any(self.Omega(val_inds))
+        error('Validation indices must be held out of Omega!');
+      end
+    end
+
+    % True data for continuous evaluation.
     evaltrue = false;
     if ~isempty(params.trueData)
       evaltrue = true;
       [Xtrue, groupsTrue] = params.trueData{:};
+      Xunobs = Xtrue(self.Omegac); normXunobs = norm(Xunobs);
     end
 
     % Whether tau changes across iteration.
     taus = [0 0].^params.tauScheme;
+    tau_denom = max(params.maxIter-1, 1);
     % adapt_tau = ~(params.tauScheme(2)==0 || params.tauScheme(2)==inf);
 
     prtformstr = ['(main alt) k=%d, obj=%.2e, ' ...
         'convobj=%.2e, convC=%.2e, convY=%.2e, rtime=%.2f,%.2f'];
+    if doval
+      prtformstr = [prtformstr ', valerr=%.3f'];
+    end
     if evaltrue
       prtformstr = [prtformstr ', cmperr=%.3f, clstrerr=%.3f, reconerr=%.3f'];
     end
@@ -121,7 +142,7 @@ classdef SC_MC_Base_Solver
     history.status = 1;
     for kk=1:params.maxIter
       % Possibly update unobserved entry weights.
-      taus = ((kk-1)/params.maxIter).^params.tauScheme;
+      taus = ((kk-1)/tau_denom).^params.tauScheme;
       % Alternate updating C, Y.
       % Note previous iterates used to warm-start.
       [C, exprC_history] = self.exprC(Y, C, taus(1), exprC_params);
@@ -132,9 +153,12 @@ classdef SC_MC_Base_Solver
       convY = infnorm(Y - Y_last)/relthr;
       [obj, L, R] = self.objective(Y, C, taus(2)); % Choice of tau_2 arbitrary.
       convobj = (obj_last - obj)/obj;
-      true_scores = [];
+      val_err = []; true_scores = [];
+      if doval
+        val_err = norm(Y(val_inds)-Xval)/normXval;
+      end
       if evaltrue
-        comp_err = self.eval_comp_err(Y, C, Xtrue);
+        comp_err = norm(Y(self.Omegac)-Xunobs)/normXunobs;
         [groups, ~, cluster_err] = self.cluster(C, groupsTrue);
         recon_err = sum(sum((Xtrue - Xtrue*C).^2));
         true_scores = [comp_err cluster_err recon_err];
@@ -143,12 +167,14 @@ classdef SC_MC_Base_Solver
       % Printing, logging.
       if params.prtLevel > 0
         subprob_rts = [exprC_history.rtime compY_history.rtime];
-        fprintf(prtformstr, [kk obj convobj convC convY subprob_rts true_scores]);
+        fprintf(prtformstr, [kk obj convobj convC convY subprob_rts val_err true_scores]);
       end
       if params.logLevel > 0
         history.obj(kk,:) = [obj L R];
         history.conv(kk,:) = [convobj convC convY];
-        history.taus(kk,:) = taus;
+        if doval
+          history.val_err(kk) = val_err;
+        end
         if evaltrue
           history.true_scores(kk,:) = true_scores;
         end
@@ -174,7 +200,7 @@ classdef SC_MC_Base_Solver
       end
       C_last = C; Y_last = Y; obj_last = obj;
       if mod(kk,params.lambdaIncrSteps) == 0
-        self.lambda = min(params.lambdaIncr*self.lambda, 1e4);
+        self.lambda = min(params.lambdaIncr*self.lambda, params.lambdaMax);
       end
     end
     history.iter = kk;
@@ -198,14 +224,6 @@ classdef SC_MC_Base_Solver
     end
     end
 
-    function comp_err = eval_comp_err(self, Y, ~, Xtrue)
-    % eval_comp_err   Evaluate completion error of Y (possibly using C).
-    %
-    %   comp_err = solver.eval_comp_err(Y, C, Xtrue)
-    Xunobs = Xtrue(self.Omegac);
-    % NOTE: Should Y or Y*C be used as the completion estimate?
-    comp_err = norm(Y(self.Omegac)-Xunobs)/norm(Xunobs);
-    end
 
   end
 end

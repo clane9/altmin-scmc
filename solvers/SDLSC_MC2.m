@@ -87,10 +87,14 @@ classdef SDLSC_MC2 < SC_MC_Base_Solver
     %       lambdaIncr: rate for adjusting lambda during optimization
     %         [default: 1].
     %       lambdaIncrSteps: How often to increase lambda [default: 1].
+    %       lambdaMax: Maximum lambda can increase to [default: 1e4].
     %       doPrune: Whether to prune least used & redundant dictionary atoms
     %         [default: false].
-    %       Y0: Inital estimat of complete data, used to choose replacement
+    %       Y0: Initial estimate of complete data, used to choose replacement
     %         dictionary atoms. If not provided and doPrune set, will use ZF data.
+    %       valData: Data to use for validation, a cell {val_inds, Xval}
+    %         corresponding to a set of held-out indices and observed values.
+    %         val_inds should be a subset of the indices in Omega^c [default: {}].
     %       trueData: cell containing {Xtrue, groupsTrue} if available
     %         [default: {}].
     %       prtLevel: printing level 0=none, 1=outer iteration, 2=outer &
@@ -114,8 +118,9 @@ classdef SDLSC_MC2 < SC_MC_Base_Solver
     if nargin < 3; exprC_params = struct; end
     if nargin < 4; solveU_params = struct; end
     fields = {'maxIter', 'maxTime', 'convThr', 'lambdaIncr', ...
-        'lambdaIncrSteps', 'doPrune', 'Y0', 'trueData', 'prtLevel', 'logLevel'};
-    defaults = {30, Inf, 1e-6, 1, 1, false, [], {}, 1, 1};
+        'lambdaIncrSteps', 'lambdaMax', 'doPrune', 'Y0', 'valData', 'trueData', ...
+        'prtLevel', 'logLevel'};
+    defaults = {30, Inf, 1e-6, 1, 1, 1e4, false, [], {}, {}, 1, 1};
     for ii=1:length(fields)
       if ~isfield(params, fields{ii})
         params.(fields{ii}) = defaults{ii};
@@ -130,15 +135,30 @@ classdef SDLSC_MC2 < SC_MC_Base_Solver
     solveU_params.logLevel = params.logLevel-1;
     tstart = tic; % start timer.
 
-    % Initialize constants.
+    % Held out observed entries for validation.
+    doval = false;
+    if ~isempty(params.valData)
+      doval = true;
+      [val_inds, Xval] = params.valData{:};
+      normXval = norm(Xval); % Xval a vector of held out observed entries.
+      if any(self.Omega(val_inds))
+        error('Validation indices must be held out of Omega!');
+      end
+    end
+
+    % True data for continuous evaluation.
     evaltrue = false;
     if ~isempty(params.trueData)
       evaltrue = true;
       [Xtrue, groupsTrue] = params.trueData{:};
+      Xunobs = Xtrue(self.Omegac); normXunobs = norm(Xunobs);
     end
 
     prtformstr = ['(main alt) k=%d, obj=%.2e, ' ...
         'convobj=%.2e, convC=%.2e, convU=%.2e, rtime=%.2f,%.2f'];
+    if doval
+      prtformstr = [prtformstr ', valerr=%.3f'];
+    end
     if evaltrue
       prtformstr = [prtformstr ', cmperr=%.3f, clstrerr=%.3f, reconerr=%.3f'];
     end
@@ -163,15 +183,19 @@ classdef SDLSC_MC2 < SC_MC_Base_Solver
       % Alternate updating C, U.
       [C, exprC_history] = self.exprC(U, C, exprC_params);
       [U, solveU_history] = self.solveU(U, C, solveU_params);
+      Y = U*C;
 
       % Diagnostic measures.
       convC = infnorm(C - C_last)/relthr;
       convU = infnorm(U - U_last)/relthr;
       [obj, L, R] = self.objective(U, C);
       convobj = (obj_last - obj)/obj;
-      true_scores = [];
+      val_err = []; true_scores = [];
+      if doval
+        val_err = norm(Y(val_inds)-Xval)/normXval;
+      end
       if evaltrue
-        comp_err = self.eval_comp_err(U, C, Xtrue);
+        comp_err = norm(Y(self.Omegac)-Xunobs)/normXunobs;
         [groups, ~, cluster_err] = self.cluster(C, groupsTrue);
         recon_err = sum(sum((Xtrue - U*C).^2));
         true_scores = [comp_err cluster_err recon_err];
@@ -180,11 +204,14 @@ classdef SDLSC_MC2 < SC_MC_Base_Solver
       % Printing, logging.
       if params.prtLevel > 0
         subprob_rts = [exprC_history.rtime solveU_history.rtime];
-        fprintf(prtformstr, [kk obj convobj convC convU subprob_rts true_scores]);
+        fprintf(prtformstr, [kk obj convobj convC convU subprob_rts val_err true_scores]);
       end
       if params.logLevel > 0
         history.obj(kk,:) = [obj L R];
         history.conv(kk,:) = [convobj convC convU];
+        if doval
+          history.val_err(kk) = val_err;
+        end
         if evaltrue
           history.true_scores(kk,:) = true_scores;
         end
@@ -211,15 +238,13 @@ classdef SDLSC_MC2 < SC_MC_Base_Solver
       C_last = C; U_last = U; obj_last = obj;
       % Increase lambda
       if mod(kk,params.lambdaIncrSteps) == 0
-        self.lambda = min(params.lambdaIncr*self.lambda, 1e4);
+        self.lambda = min(params.lambdaIncr*self.lambda, params.lambdaMax);
       end
     end
     history.iter = kk;
     if ~evaltrue
       groups = self.cluster(C, groupsTrue);
     end
-    % Form completion.
-    Y = U*C;
     history.rtime = toc(tstart);
     end
 
@@ -392,16 +417,6 @@ classdef SDLSC_MC2 < SC_MC_Base_Solver
     else
       cluster_err = nan;
     end
-    end
-
-
-    function comp_err = eval_comp_err(self, U, C, Xtrue)
-    % eval_comp_err   Evaluate completion error of Y = U*C.
-    %
-    %   comp_err = solver.eval_comp_err(U, C, Xtrue)
-    Xunobs = Xtrue(self.Omegac);
-    Y = U*C;
-    comp_err = norm(Y(self.Omegac)-Xunobs)/norm(Xunobs);
     end
 
 
