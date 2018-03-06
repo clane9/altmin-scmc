@@ -5,7 +5,7 @@ if nargin < 12; opt_params = struct; end
 if nargin < 13; exprC_params = struct; end
 if nargin < 14; compY_params = struct; end
 
-compY_params.maxIter = 200; compY_params.convThr = 1e-3;
+compY_params.maxIter = 500; compY_params.convThr = 1e-4;
 exprC_params.maxIter = 200; exprC_params.convThr = 1e-3;
 % exprC_params.mu = form_params.lambda;
 
@@ -26,6 +26,9 @@ elseif strcmpi(formulation, 'ENSC_MC_apg')
 elseif strcmpi(formulation, 'ENSC_MC_spams')
   solver = ENSC_MC_spams(X.*Omega, Omega, n, form_params.lambda, ...
       form_params.gamma, form_params.eta);
+elseif strcmpi(formulation, 'ENSC_MC_spams_comp_apg')
+  solver = ENSC_MC_spams_comp_apg(X.*Omega, Omega, n, form_params.lambda,...
+      form_params.gamma);
 elseif strcmpi(formulation, 'ENSC_Group_MC_spams')
   solver = ENSC_Group_MC_spams(X.*Omega, Omega, n, form_params.lambda,...
       form_params.gamma);
