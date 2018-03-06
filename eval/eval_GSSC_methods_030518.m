@@ -35,9 +35,10 @@ if any(strcmpi(initMode, {'pzf_ssc', 'alt_pzf_ssc'}))
   opt_params.Y0 = Y0;
   U0 = zeros(D, Ud*n);
   for ii=1:n
-    [Ui, Si, ~] = svds(Y0(:,tmp_groups==ii),Ud);
+    [Ui, Si, ~] = svd(Y0(:,tmp_groups==ii));
+    Ui = Ui(:,1:Ud);
     startind = (ii-1)*Ud + 1; stopind = ii*Ud;
-    U0(:,startind:stopind) = Ui*Si;
+    U0(:,startind:stopind) = Ui; % Ui*Si;
   end
 else
   % default: zero-filling.
