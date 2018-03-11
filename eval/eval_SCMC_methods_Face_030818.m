@@ -44,7 +44,7 @@ tabledata = cell(nrho, length(tablefields));
 maxSecs = maxSecs / nrho;
 
 % Parameters for initialization.
-init_params.lambda = 80;
+init_params.lambda = 320;
 init_params.tauScheme = [inf 0];
 init_params.lambdaIncr = 1.0;
 init_params.maxIter = 10;
@@ -61,7 +61,7 @@ opt_params.prtLevel = 1; opt_params.logLevel = 1;
 gamma0 = Gamma;
 relax = 1; affine = 0;
 opt.tol =1e-4;
-opt.maxIter =1e6;
+opt.maxIter = 500; % maximum subproblem iters comparable to other altmin methods.
 opt.rho =1.1;
 opt.mu_max =1e4;
 opt.norm_sr ='1';
@@ -135,11 +135,13 @@ for jj=1:nrho
     else
       U0 = [];
     end
+    opt_params.Y0 = Y0;
     [~, C, Y, histories{jj}] = solver.solve(U0, opt_params);
   elseif strcmpi(form, 'S3LR')
     [~, ~, C, Y, ~] = S3LR(Xobs, Omega, groupsTrue, X, lambda, Gamma, Y0, gamma0, ...
         relax, affine, maxIter, maxSecs - toc(tstart), opt, T, lambdaIncr);
   elseif strcmpi(form, 'SRME_MC')
+    opt_params.maxIter = opt_params.maxIter*10; % Increase iterations since no subproblem.
     [Y, C, ~] = SRME_MC_ADMM(Xobs, Omega, Y0, lambda, alpha, opt_params);
   else
     error('formulation not implemented!')

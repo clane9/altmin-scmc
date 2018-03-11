@@ -86,7 +86,7 @@ while iter<params.maxIter
     stopC3=max([norm(A_new-A,'fro') norm(Z_new-Z,'fro') norm(X_new-X,'fro') norm(E_new-E,'fro')])/normF_X0;
     %
     isstopC=max([stopC1 stopC2 stopC3])<params.convThr;
-    if mod(iter,100)==0||isstopC
+    if mod(iter,10)==0||isstopC
         disp(['rankX=' num2str(rank(X_new,1e-3*norm(X_new,2)))])% can be closed for acceleration
         disp(['iteration=' num2str(iter) '/' num2str(params.maxIter)])
         disp(['stopC1=' num2str(stopC1)])
