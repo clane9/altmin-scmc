@@ -13,7 +13,7 @@ gamma0 = Gamma;
 % Copy defaults from S3LR
 relax = 1; affine = 0;
 opt.tol =1e-4;
-opt.maxIter =1e6;
+opt.maxIter = 500; % maximum subproblem iters comparable to other altmin methods.
 opt.rho =1.1;
 opt.mu_max =1e4;
 opt.norm_sr ='1';
